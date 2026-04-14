@@ -1,0 +1,231 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Base Reset ─────────────────────────────────────────── */
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+    font-size: 16px;
+  }
+
+  body {
+    background-color: #070F15;
+    color: #E8F5F2;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+      'Helvetica Neue', Arial, sans-serif;
+    min-height: 100dvh;
+    line-height: 1.6;
+  }
+
+  /* Remove default list styles */
+  ul, ol { list-style: none; padding: 0; margin: 0; }
+
+  /* Focus rings: only show on keyboard nav */
+  :focus-visible {
+    outline: 2px solid rgba(61, 214, 176, 0.7);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+
+  /* Selection colour */
+  ::selection {
+    background-color: rgba(61, 214, 176, 0.2);
+    color: #E8F5F2;
+  }
+}
+
+/* ─── Utility Classes ────────────────────────────────────── */
+@layer utilities {
+  /* Gradient text */
+  .text-gradient-primary {
+    background: linear-gradient(120deg, #3DD6B0 0%, #5EE4C0 50%, #3ECCC8 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .text-gradient-hero {
+    background: linear-gradient(125deg, #E8F5F2 0%, #C8EDE5 45%, #3DD6B0 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* Glassmorphism card */
+  .glass-card {
+    background: rgba(13, 30, 42, 0.75);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 20px;
+  }
+
+  .glass-card-hover {
+    transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+  }
+
+  .glass-card-hover:hover {
+    border-color: rgba(61, 214, 176, 0.22);
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.35), 0 0 24px rgba(61, 214, 176, 0.08);
+    transform: translateY(-2px);
+  }
+
+  /* Premium border subtle glow */
+  .border-glow {
+    border: 1px solid rgba(61, 214, 176, 0.28);
+    box-shadow: 0 0 20px rgba(61, 214, 176, 0.08), inset 0 1px 0 rgba(61, 214, 176, 0.06);
+  }
+
+  /* Stagger animation delays */
+  .delay-100 { animation-delay: 100ms; }
+  .delay-200 { animation-delay: 200ms; }
+  .delay-300 { animation-delay: 300ms; }
+  .delay-400 { animation-delay: 400ms; }
+  .delay-500 { animation-delay: 500ms; }
+  .delay-600 { animation-delay: 600ms; }
+  .delay-700 { animation-delay: 700ms; }
+  .delay-800 { animation-delay: 800ms; }
+
+  /* Divider line */
+  .divider {
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+  }
+}
+
+/* ─── Component Styles ───────────────────────────────────── */
+@layer components {
+  /* Shared section container */
+  .section-container {
+    @apply max-w-5xl mx-auto px-5 sm:px-8;
+  }
+
+  /* Nav link */
+  .nav-link {
+    @apply text-sm font-medium text-[#6E9BAA] hover:text-[#E8F5F2] transition-colors duration-200;
+  }
+
+  /* Primary button */
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm
+           bg-[#3DD6B0] text-[#070F15]
+           hover:bg-[#5EE4C0]
+           active:scale-[0.97]
+           transition-all duration-200
+           shadow-[0_4px_20px_rgba(61,214,176,0.22)];
+  }
+
+  /* Ghost button */
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm
+           border border-[rgba(255,255,255,0.11)] text-[#E8F5F2]
+           hover:border-[rgba(61,214,176,0.35)] hover:text-[#3DD6B0]
+           active:scale-[0.97]
+           transition-all duration-200;
+  }
+
+  /* Status badge */
+  .badge {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold
+           bg-[rgba(61,214,176,0.10)] text-[#3DD6B0]
+           border border-[rgba(61,214,176,0.22)];
+  }
+
+  /* Feature card icon container */
+  .feature-icon {
+    @apply w-10 h-10 flex items-center justify-center rounded-xl
+           bg-[rgba(61,214,176,0.10)] text-[#3DD6B0]
+           border border-[rgba(61,214,176,0.18)];
+  }
+
+  /* Section heading */
+  .section-eyebrow {
+    @apply text-xs font-semibold tracking-widest uppercase text-[#3DD6B0] mb-3;
+  }
+
+  /* Legal prose */
+  .legal-prose h2 {
+    @apply text-lg font-semibold text-[#E8F5F2] mt-10 mb-3;
+  }
+
+  .legal-prose h3 {
+    @apply text-base font-semibold text-[#C8EDE5] mt-7 mb-2;
+  }
+
+  .legal-prose p {
+    @apply text-[#8CB4C0] leading-relaxed mb-4;
+  }
+
+  .legal-prose ul {
+    @apply list-disc pl-5 space-y-2 text-[#8CB4C0] mb-5;
+  }
+
+  .legal-prose a {
+    @apply text-[#3DD6B0] hover:text-[#5EE4C0] underline underline-offset-2 transition-colors;
+  }
+}
+
+/* ─── Scrollbar ──────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(61, 214, 176, 0.30);
+}
+
+/* ─── Loading spinner ────────────────────────────────────── */
+@keyframes spin-ease {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.spinner {
+  animation: spin-ease 0.9s linear infinite;
+  border: 2px solid rgba(61, 214, 176, 0.18);
+  border-top-color: #3DD6B0;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+}
+
+/* ─── Shimmer effect for coming soon placeholders ────────── */
+@keyframes shimmer-move {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.shimmer-placeholder {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0px,
+    rgba(255, 255, 255, 0.07) 80px,
+    rgba(255, 255, 255, 0.04) 160px
+  );
+  background-size: 400px 100%;
+  animation: shimmer-move 2s linear infinite;
+}

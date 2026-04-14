@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <defs>
+    <!-- Deep dark background radial -->
+    <radialGradient id="bg" cx="50%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#0A1628"/>
+      <stop offset="100%" stop-color="#02060E"/>
+    </radialGradient>
+
+    <!-- Blue glow filter for rings -->
+    <filter id="ringGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="3.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Soft glow for the arrow tip -->
+    <filter id="arrowGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Arrow gradient: bright white tip → blue body -->
+    <linearGradient id="arrowFront" x1="60%" y1="0%" x2="40%" y2="100%">
+      <stop offset="0%" stop-color="#DDEEFF"/>
+      <stop offset="35%" stop-color="#90CAF9"/>
+      <stop offset="100%" stop-color="#1565C0"/>
+    </linearGradient>
+
+    <!-- Arrow shadow/back face -->
+    <linearGradient id="arrowBack" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0A1628"/>
+      <stop offset="100%" stop-color="#0D2445"/>
+    </linearGradient>
+
+    <!-- Ring gradient -->
+    <linearGradient id="ringGrad" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#63D3FF"/>
+      <stop offset="40%" stop-color="#29B6F6"/>
+      <stop offset="100%" stop-color="#0277BD"/>
+    </linearGradient>
+
+    <!-- Clip to circle -->
+    <clipPath id="circle">
+      <circle cx="100" cy="100" r="100"/>
+    </clipPath>
+  </defs>
+
+  <!-- Circle clip -->
+  <g clip-path="url(#circle)">
+
+    <!-- Background -->
+    <circle cx="100" cy="100" r="100" fill="url(#bg)"/>
+
+    <!-- Subtle inner atmosphere -->
+    <radialGradient id="atmo" cx="50%" cy="35%" r="40%">
+      <stop offset="0%" stop-color="#1565C0" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#1565C0" stop-opacity="0"/>
+    </radialGradient>
+    <circle cx="100" cy="100" r="100" fill="url(#atmo)"/>
+
+    <!-- Outer glow ring (blurred, behind the crisp ring) -->
+    <circle cx="100" cy="100" r="86"
+      stroke="#29B6F6" stroke-width="6" fill="none"
+      stroke-opacity="0.25"
+      filter="url(#ringGlow)"/>
+
+    <!-- Outer crisp ring -->
+    <circle cx="100" cy="100" r="86"
+      stroke="url(#ringGrad)" stroke-width="2.2" fill="none"/>
+
+    <!-- Inner ring (tighter, slightly dimmer) -->
+    <circle cx="100" cy="100" r="78"
+      stroke="#29B6F6" stroke-width="1.2" fill="none" stroke-opacity="0.55"/>
+
+    <!-- Cardinal direction diamonds — N S E W -->
+    <!-- North -->
+    <polygon points="100,10 103.5,16 100,14 96.5,16"
+      fill="#63D3FF" opacity="0.9"/>
+    <!-- South -->
+    <polygon points="100,190 103.5,184 100,186 96.5,184"
+      fill="#29B6F6" opacity="0.5"/>
+    <!-- East -->
+    <polygon points="190,100 184,96.5 186,100 184,103.5"
+      fill="#29B6F6" opacity="0.5"/>
+    <!-- West -->
+    <polygon points="10,100 16,96.5 14,100 16,103.5"
+      fill="#29B6F6" opacity="0.5"/>
+
+    <!-- ── Navigation arrow (compass needle) ── -->
+    <!-- The arrow sits slightly left of centre, tilted ~10° left, pointing NNE -->
+    <!-- Front bright face -->
+    <polygon
+      points="100,28  88,108  100,96  112,108"
+      fill="url(#arrowFront)"
+      filter="url(#arrowGlow)"
+    />
+    <!-- Dark back/shadow face (lower half, pointing south) -->
+    <polygon
+      points="100,96  88,108  100,172  112,108"
+      fill="url(#arrowBack)"
+      opacity="0.85"
+    />
+    <!-- Centre spine highlight -->
+    <line x1="100" y1="32" x2="100" y2="168"
+      stroke="#B3E5FC" stroke-width="1" opacity="0.18"/>
+
+  </g>
+</svg>
