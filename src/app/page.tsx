@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
+import Image from 'next/image'
 import Nav from '@/components/Nav'
 import Footer from '@/components/Footer'
 import ScrollCompass from '@/components/ScrollCompass'
@@ -132,44 +133,90 @@ const comingSoonModules = [
   },
 ]
 
-const smartFeatures = [
+const smartFeatures: { icon: ReactNode; title: string; detail: string }[] = [
   {
-    icon: '⚡',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+        <path d="M2 17l10 5 10-5"/>
+        <path d="M2 12l10 5 10-5"/>
+      </svg>
+    ),
     title: 'Unified Work Hub',
     detail: 'One entry point for every income type. Shared tax logic, insights, and reports across all modules.',
   },
   {
-    icon: '🎯',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+      </svg>
+    ),
     title: 'One-tap Logging',
     detail: 'Minimal friction. Start a shift, end a session, log a job — in seconds. Advanced mode always available.',
   },
   {
-    icon: '📊',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <circle cx="12" cy="12" r="6"/>
+        <circle cx="12" cy="12" r="2"/>
+      </svg>
+    ),
     title: 'Goals System',
     detail: 'Set weekly, monthly, or annual targets. CompassInsights calculates effort, pacing, and time to completion.',
   },
   {
-    icon: '🔭',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+        <polyline points="17 6 23 6 23 12"/>
+      </svg>
+    ),
     title: 'Insights & Predictions',
     detail: 'Summaries now. Prediction charts, trend analysis, and actionable prompts rolling in next.',
   },
   {
-    icon: '🪙',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="12" cy="8" r="6"/>
+        <path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/>
+      </svg>
+    ),
     title: 'Coins, XP & Levels',
     detail: 'Motivation through consistency — not gimmicks. Rewards built around habits that actually matter.',
   },
   {
-    icon: '🔔',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+        <path d="M13.73 21a2 2 0 01-3.46 0"/>
+      </svg>
+    ),
     title: 'Smart Notifications',
     detail: 'Contextual, low-frequency, high-relevance. Human tone. Not a spam machine.',
   },
   {
-    icon: '📅',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="3" y="4" width="18" height="18" rx="2"/>
+        <line x1="16" y1="2" x2="16" y2="6"/>
+        <line x1="8" y1="2" x2="8" y2="6"/>
+        <line x1="3" y1="10" x2="21" y2="10"/>
+        <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" strokeWidth="2"/>
+      </svg>
+    ),
     title: 'Calendar',
     detail: 'Premium. Past work, upcoming sessions, and forward projections — all in one view.',
   },
   {
-    icon: '📋',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+        <line x1="18" y1="20" x2="18" y2="10"/>
+        <line x1="12" y1="20" x2="12" y2="4"/>
+        <line x1="6"  y1="20" x2="6"  y2="14"/>
+        <line x1="2"  y1="20" x2="22" y2="20"/>
+      </svg>
+    ),
     title: 'Reports & Tax',
     detail: 'AU-first, globally expandable. Clean exportable summaries for PAYG, ABN, or self-employed.',
   },
@@ -219,8 +266,8 @@ const securityPoints = [
         <path d="M8 11V7a4 4 0 018 0v4" stroke="#3DD6B0" strokeWidth="1.7" strokeLinecap="round"/>
       </svg>
     ),
-    title: 'Controlled premium sync',
-    detail: 'Cloud backup is opt-in, premium, and user-controlled. You choose what leaves your device.',
+    title: 'Premium cloud backup',
+    detail: 'Premium unlocks secure cloud backup and restore. When those features are active, your data is kept safely backed up to protect your progress.',
   },
   {
     icon: (
@@ -228,8 +275,8 @@ const securityPoints = [
         <path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" stroke="#3DD6B0" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
-    title: 'Outbox-based sync pipeline',
-    detail: 'Local DB → sync outbox → Supabase. No direct writes from UI. Corruption-resistant by design.',
+    title: 'Sync integrity by design',
+    detail: 'Data moves through a structured process before reaching any cloud layer — keeping your records consistent and corruption-resistant.',
   },
   {
     icon: (
@@ -238,8 +285,8 @@ const securityPoints = [
         <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" stroke="#3DD6B0" strokeWidth="1.4" strokeLinecap="round" opacity="0.6"/>
       </svg>
     ),
-    title: 'UI ↔ logic separation',
-    detail: 'Business rules live in repositories and services — never in the UI layer. Clean, auditable, testable.',
+    title: 'Auditable by design',
+    detail: 'IncomePilot is built so that calculations, summaries, and data rules are clean, testable, and independent of the interface.',
   },
   {
     icon: (
@@ -259,8 +306,8 @@ const securityPoints = [
         <path d="M12 8v4l3 3" stroke="#3DD6B0" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
-    title: 'Wipe → restore guarantee',
-    detail: 'The app can always wipe → login → restore full state. No critical data dies on device loss.',
+    title: 'Restore & continuity',
+    detail: 'Premium users can back up their progress to the cloud. Wipe, reinstall, and restore — your earnings history comes back with you.',
   },
 ]
 
@@ -292,7 +339,38 @@ export default function HomePage() {
             }}
           />
 
-          <div className="section-container relative pt-24 pb-20 sm:pt-32 sm:pb-28 text-center">
+          <div className="section-container relative pt-16 pb-20 sm:pt-20 sm:pb-28 text-center">
+
+            {/* Hero logo mark */}
+            <div className="flex justify-center mb-8 animate-fade-in">
+              <div className="relative">
+                {/* Outer ambient glow */}
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-[-16px] rounded-full"
+                  style={{ background: 'radial-gradient(circle, rgba(61,214,176,0.18) 0%, transparent 70%)' }}
+                />
+                {/* Logo ring */}
+                <div
+                  className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden"
+                  style={{
+                    border:     '2px solid rgba(61,214,176,0.35)',
+                    boxShadow:  '0 0 24px rgba(61,214,176,0.30), 0 0 48px rgba(61,214,176,0.12), inset 0 1px 0 rgba(61,214,176,0.12)',
+                    outline:    '4px solid rgba(61,214,176,0.08)',
+                    outlineOffset: '3px',
+                  }}
+                >
+                  <Image
+                    src="/logo.png"
+                    alt="IncomePilot"
+                    width={96}
+                    height={96}
+                    className="w-full h-full object-cover"
+                    priority
+                  />
+                </div>
+              </div>
+            </div>
 
             {/* Badge */}
             <div className="inline-flex justify-center animate-fade-in">
@@ -684,7 +762,7 @@ export default function HomePage() {
                   key={f.title}
                   className={`glass-card glass-card-hover p-5 flex flex-col gap-3 reveal reveal-delay-${(i % 4) + 1}`}
                 >
-                  <span className="text-2xl leading-none" aria-hidden="true">{f.icon}</span>
+                  <div className="feature-icon">{f.icon}</div>
                   <h3 className="font-bold text-[#E8F5F2] text-sm">{f.title}</h3>
                   <p className="text-xs text-[#6E9BAA] leading-relaxed">{f.detail}</p>
                 </div>

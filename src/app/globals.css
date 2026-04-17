@@ -286,3 +286,29 @@
   animation: compass-ring-spin 18s linear infinite reverse;
   transform-origin: center;
 }
+
+/* ─── Compass ripple/pulse rings ─────────────────────────── */
+@keyframes compass-ripple-expand {
+  0%   { transform: scale(1);   opacity: 0.55; }
+  80%  { opacity: 0; }
+  100% { transform: scale(2.1); opacity: 0; }
+}
+
+.compass-pulse-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(61, 214, 176, 0.35);
+  transform-origin: center;
+  pointer-events: none;
+}
+
+.compass-pulse-1 {
+  animation: compass-ripple-expand 3s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+.compass-pulse-2 {
+  animation: compass-ripple-expand 3s cubic-bezier(0, 0, 0.2, 1) 1s infinite;
+}
+.compass-pulse-3 {
+  animation: compass-ripple-expand 3s cubic-bezier(0, 0, 0.2, 1) 2s infinite;
+}

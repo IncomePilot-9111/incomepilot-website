@@ -4,13 +4,13 @@
  * Supabase auth callback page.
  *
  * Handles:
- *   • Email verification  (type = signup | email_change)
+ *   • Email verification  (token_hash + type = email/signup/email_change)
  *   • Password reset      (type = recovery)
  *   • Magic-link sign-in  (type = magiclink)
  *
  * Flow:
- *  1. Parse token_hash + type from URL search params
- *  2. Call supabase.auth.verifyOtp() to exchange the token
+ *  1. Parse token_hash + type (or code when present) from URL search params
+ *  2. Call supabase.auth.verifyOtp() for token-hash links
  *  3. On success → attempt to open app via deep link, then show success UI
  *  4. On error  → show clean branded error state, guide user to retry
  *

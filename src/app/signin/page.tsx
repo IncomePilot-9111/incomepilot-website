@@ -65,7 +65,7 @@ export default function SignInPage() {
             <Link href="/privacy" className="hover:text-[#3DD6B0] transition-colors underline underline-offset-2">
               Privacy Policy
             </Link>
-            .
+            . Your data stays on your device by default. Premium unlocks secure cloud backup.
           </p>
         </div>
       </main>
