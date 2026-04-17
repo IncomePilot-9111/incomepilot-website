@@ -3,40 +3,82 @@
 import { useEffect, useRef } from 'react'
 
 /**
- * ScrollCompass — premium fixed right-side scroll-progress indicator.
+ * ScrollCompass — floating bottom-right journey indicator.
  *
- * • Glass-morphism pill housing with teal border glow
- * • 3 staggered CSS ripple rings radiating from the dial
- * • Needle rotates 0 → 360° as the user scrolls top → bottom
- * • 7 segmented progress dashes below the dial
- * • Visible on md+ screens (768 px and above)
+ * PLACEMENT
+ *   Fixed bottom-right corner. pointer-events-none — not a button.
+ *   Hidden on mobile (<640 px), visible on sm+ so it never crowds small screens.
+ *
+ * NEEDLE LOGIC
+ *   The needle maps scroll progress to cardinal directions — not a raw spin:
+ *     North  (0°)   = Hero / top of page
+ *     East   (90°)  = Architecture / Modules
+ *     South  (180°) = Features / Security
+ *     West   (270°) = Team / Footer
+ *   Transitions between waypoints are ease-in-out so the movement feels
+ *   deliberate and intelligent rather than mechanical or random.
+ *
+ * VISUAL
+ *   Glass pill with one dashed spinning ring, teal glow, 9 horizontal
+ *   progress dashes, and a muted "CompassInsights" label. Intentionally
+ *   subdued so it reads as a navigation signal, not a primary CTA.
  */
+
+// Waypoints: [scrollProgress 0–1, needleDegrees]
+// Mapped across the 11 page sections (Hero → CTA)
+const WAYPOINTS: [number, number][] = [
+  [0.00,   0],  // Hero                → North
+  [0.12,  30],  // Core Philosophy     → NNE
+  [0.24,  90],  // Architecture        → East
+  [0.38, 120],  // Modules             → ESE
+  [0.50, 160],  // CompassInsights     → SSE
+  [0.63, 180],  // Smart Features      → South
+  [0.74, 210],  // Security & Privacy  → SSW
+  [0.85, 240],  // Why IncomePilot     → SW
+  [1.00, 270],  // Team / CTA / Footer → West
+]
+
+/** Linear-interpolate with ease-in-out between section waypoints */
+function progressToDeg(p: number): number {
+  for (let i = 0; i < WAYPOINTS.length - 1; i++) {
+    const [p0, d0] = WAYPOINTS[i]
+    const [p1, d1] = WAYPOINTS[i + 1]
+    if (p >= p0 && p <= p1) {
+      const t      = (p - p0) / (p1 - p0)
+      const eased  = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t  // ease-in-out
+      return d0 + eased * (d1 - d0)
+    }
+  }
+  return WAYPOINTS[WAYPOINTS.length - 1][1]
+}
+
 export default function ScrollCompass() {
   const needleRef = useRef<SVGGElement>(null)
-  const dotsRef  = useRef<HTMLDivElement>(null)
+  const dotsRef   = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const onScroll = () => {
-      const scrollTop = window.scrollY
       const docHeight = document.documentElement.scrollHeight - window.innerHeight
-      const progress  = docHeight > 0 ? Math.min(scrollTop / docHeight, 1) : 0
+      const progress  = docHeight > 0 ? Math.min(window.scrollY / docHeight, 1) : 0
+      const deg       = progressToDeg(progress)
 
-      // Needle: sweeps −15° (top) → 345° (bottom)
       if (needleRef.current) {
-        const deg = -15 + progress * 360
         needleRef.current.style.transform = `rotate(${deg}deg)`
       }
 
-      // Progress segments
       if (dotsRef.current) {
-        const segs  = dotsRef.current.querySelectorAll<HTMLSpanElement>('span')
-        const total = segs.length
+        const segs   = dotsRef.current.querySelectorAll<HTMLSpanElement>('span')
+        const total  = segs.length
         const active = Math.min(Math.floor(progress * total), total - 1)
         segs.forEach((s, i) => {
           const isActive = i === active
-          s.style.opacity    = isActive ? '1' : '0.28'
-          s.style.background = isActive ? '#3DD6B0' : 'rgba(61,214,176,0.35)'
-          s.style.transform  = isActive ? 'scaleX(2.4)' : 'scaleX(1)'
+          const isPast   = i < active
+          s.style.opacity    = isActive ? '1' : isPast ? '0.50' : '0.20'
+          s.style.background = isActive
+            ? '#3DD6B0'
+            : isPast ? 'rgba(61,214,176,0.45)' : 'rgba(61,214,176,0.18)'
+          s.style.transform  = isActive ? 'scaleY(1.6) scaleX(1.2)' : 'scaleY(1) scaleX(1)'
+          s.style.boxShadow  = isActive ? '0 0 5px rgba(61,214,176,0.6)' : 'none'
         })
       }
     }
@@ -48,142 +90,156 @@ export default function ScrollCompass() {
 
   return (
     <div
-      className="fixed right-5 top-1/2 -translate-y-1/2 z-40 hidden sm:flex flex-col items-center pointer-events-none select-none"
+      className="fixed bottom-6 right-6 z-40 hidden sm:flex pointer-events-none select-none"
       aria-hidden="true"
     >
-      {/* ── Glass housing pill ───────────────────────────────── */}
+      {/* Subtle bottom-right ambient glow — doesn't radiate forward like a CTA */}
       <div
-        className="flex flex-col items-center gap-3 px-3 py-4 rounded-2xl"
+        className="absolute inset-[-16px] rounded-3xl"
         style={{
-          background:       'rgba(7,15,21,0.78)',
-          backdropFilter:   'blur(18px)',
-          WebkitBackdropFilter: 'blur(18px)',
-          border:           '1px solid rgba(61,214,176,0.18)',
-          boxShadow:        '0 8px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(61,214,176,0.06), inset 0 1px 0 rgba(61,214,176,0.09)',
+          background:
+            'radial-gradient(ellipse 70% 50% at 80% 100%, rgba(61,214,176,0.08) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }}
+      />
+
+      {/* ── Glass pill ─────────────────────────────────────── */}
+      <div
+        className="relative flex items-center gap-3.5 px-4 py-3 rounded-2xl"
+        style={{
+          background:           'rgba(7,15,21,0.80)',
+          backdropFilter:       'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          border:               '1px solid rgba(61,214,176,0.16)',
+          boxShadow: [
+            '0 8px 32px rgba(0,0,0,0.50)',
+            '0 0 0 1px rgba(61,214,176,0.05)',
+            'inset 0 1px 0 rgba(61,214,176,0.09)',
+          ].join(', '),
         }}
       >
 
-        {/* ── Compass dial + ripple rings ──────────────────── */}
-        <div className="relative w-[80px] h-[80px]">
+        {/* ── Compass dial — 48 px, intentionally not oversized ─ */}
+        <div className="relative w-[48px] h-[48px] flex-shrink-0">
 
-          {/* Ripple rings (pure CSS, behind everything) */}
+          {/* Two staggered ripple rings — calm, not aggressive */}
           <div className="compass-pulse-ring compass-pulse-1" />
           <div className="compass-pulse-ring compass-pulse-2" />
-          <div className="compass-pulse-ring compass-pulse-3" />
 
-          {/* Outer spinning dashed ring */}
+          {/* Single outer spinning dashed ring */}
           <svg
-            viewBox="0 0 80 80"
+            viewBox="0 0 48 48"
             className="compass-ring-outer absolute inset-0 w-full h-full"
           >
             <circle
-              cx="40" cy="40" r="37"
-              stroke="rgba(61,214,176,0.20)"
-              strokeWidth="1"
-              fill="none"
-              strokeDasharray="3 6"
+              cx="24" cy="24" r="22"
+              stroke="rgba(61,214,176,0.18)" strokeWidth="1"
+              fill="none" strokeDasharray="3 5"
             />
           </svg>
 
-          {/* Inner counter-spinning dashed ring */}
+          {/* Compass face */}
           <svg
-            viewBox="0 0 80 80"
-            className="compass-ring-inner absolute inset-0 w-full h-full"
-          >
-            <circle
-              cx="40" cy="40" r="30"
-              stroke="rgba(61,214,176,0.10)"
-              strokeWidth="0.8"
-              fill="none"
-              strokeDasharray="2 8"
-            />
-          </svg>
-
-          {/* Main compass face — with drop-shadow glow */}
-          <svg
-            viewBox="0 0 80 80"
+            viewBox="0 0 48 48"
             className="absolute inset-0 w-full h-full"
-            style={{ filter: 'drop-shadow(0 0 8px rgba(61,214,176,0.45)) drop-shadow(0 0 16px rgba(61,214,176,0.20))' }}
+            style={{
+              filter:
+                'drop-shadow(0 0 6px rgba(61,214,176,0.40)) drop-shadow(0 0 14px rgba(61,214,176,0.16))',
+            }}
           >
-            {/* Soft glow halo ring */}
-            <circle cx="40" cy="40" r="35" stroke="rgba(61,214,176,0.08)" strokeWidth="8" fill="none"/>
-            {/* Main bezel */}
-            <circle cx="40" cy="40" r="34" stroke="rgba(61,214,176,0.28)" strokeWidth="1.4" fill="rgba(7,15,21,0.92)"/>
-            {/* Inner reference circle */}
-            <circle cx="40" cy="40" r="24" stroke="rgba(61,214,176,0.10)" strokeWidth="0.7" fill="none"/>
+            {/* Soft glow halo */}
+            <circle cx="24" cy="24" r="21" stroke="rgba(61,214,176,0.06)" strokeWidth="5" fill="none"/>
+            {/* Bezel */}
+            <circle cx="24" cy="24" r="20" stroke="rgba(61,214,176,0.26)" strokeWidth="1.2" fill="rgba(7,15,21,0.93)"/>
+            {/* Inner reference ring */}
+            <circle cx="24" cy="24" r="13" stroke="rgba(61,214,176,0.08)" strokeWidth="0.6" fill="none"/>
 
-            {/* Cardinal ticks — N/E/S/W */}
-            {[0, 90, 180, 270].map((deg) => {
-              const r   = (deg * Math.PI) / 180
-              const x1  = 40 + 31 * Math.sin(r); const y1 = 40 - 31 * Math.cos(r)
-              const x2  = 40 + 34 * Math.sin(r); const y2 = 40 - 34 * Math.cos(r)
+            {/* Cardinal ticks */}
+            {[0, 90, 180, 270].map((d) => {
+              const r  = (d * Math.PI) / 180
+              const x1 = 24 + 17 * Math.sin(r), y1 = 24 - 17 * Math.cos(r)
+              const x2 = 24 + 20 * Math.sin(r), y2 = 24 - 20 * Math.cos(r)
               return (
-                <line key={deg} x1={x1} y1={y1} x2={x2} y2={y2}
-                  stroke="rgba(61,214,176,0.60)" strokeWidth="1.6" strokeLinecap="round"/>
+                <line key={d} x1={x1} y1={y1} x2={x2} y2={y2}
+                  stroke="rgba(61,214,176,0.55)" strokeWidth="1.4" strokeLinecap="round"/>
               )
             })}
-
             {/* Diagonal ticks */}
-            {[45, 135, 225, 315].map((deg) => {
-              const r   = (deg * Math.PI) / 180
-              const x1  = 40 + 32 * Math.sin(r); const y1 = 40 - 32 * Math.cos(r)
-              const x2  = 40 + 34 * Math.sin(r); const y2 = 40 - 34 * Math.cos(r)
+            {[45, 135, 225, 315].map((d) => {
+              const r  = (d * Math.PI) / 180
+              const x1 = 24 + 18.5 * Math.sin(r), y1 = 24 - 18.5 * Math.cos(r)
+              const x2 = 24 + 20   * Math.sin(r), y2 = 24 - 20   * Math.cos(r)
               return (
-                <line key={deg} x1={x1} y1={y1} x2={x2} y2={y2}
-                  stroke="rgba(61,214,176,0.25)" strokeWidth="0.9" strokeLinecap="round"/>
+                <line key={d} x1={x1} y1={y1} x2={x2} y2={y2}
+                  stroke="rgba(61,214,176,0.20)" strokeWidth="0.7" strokeLinecap="round"/>
               )
             })}
 
-            {/* Needle group — JS-driven rotation */}
+            {/* Needle — ease-in-out section-aware rotation */}
             <g
               ref={needleRef}
-              style={{ transformOrigin: '40px 40px', transition: 'transform 0.12s ease-out' }}
+              style={{
+                transformOrigin: '24px 24px',
+                transition: 'transform 0.55s cubic-bezier(0.45, 0, 0.55, 1)',
+              }}
             >
-              {/* North tip — bright teal, tapered diamond */}
-              <path d="M40 40 L37.5 17 L40 23 L42.5 17 Z" fill="#3DD6B0"/>
-              {/* Highlight on north tip */}
-              <path d="M40 40 L39 19 L40 21 L41 19 Z" fill="rgba(255,255,255,0.28)"/>
+              {/* North tip — teal */}
+              <path d="M24 24 L22.2 9 L24 13.5 L25.8 9 Z" fill="#3DD6B0"/>
+              {/* Highlight */}
+              <path d="M24 24 L23.1 9.5 L24 11.5 L24.9 9.5 Z" fill="rgba(255,255,255,0.22)"/>
               {/* South tip — muted */}
-              <path d="M40 40 L38.5 63 L40 57 L41.5 63 Z" fill="rgba(61,214,176,0.22)"/>
+              <path d="M24 24 L22.8 39 L24 35 L25.2 39 Z" fill="rgba(61,214,176,0.20)"/>
             </g>
 
             {/* Centre jewel */}
-            <circle cx="40" cy="40" r="4"   fill="#3DD6B0" opacity="0.92"/>
-            <circle cx="40" cy="40" r="2.2" fill="rgba(7,15,21,0.95)"/>
-            <circle cx="40" cy="40" r="1.1" fill="rgba(61,214,176,0.85)"/>
+            <circle cx="24" cy="24" r="2.8" fill="#3DD6B0" opacity="0.90"/>
+            <circle cx="24" cy="24" r="1.5" fill="rgba(7,15,21,0.95)"/>
+            <circle cx="24" cy="24" r="0.8" fill="rgba(61,214,176,0.80)"/>
           </svg>
         </div>
 
-        {/* ── Progress segments ────────────────────────────── */}
-        <div ref={dotsRef} className="flex flex-col items-center gap-[5px]">
-          {Array.from({ length: 7 }).map((_, i) => (
-            <span
-              key={i}
-              style={{
-                display:      'block',
-                width:        '18px',
-                height:       '2.5px',
-                borderRadius: '999px',
-                background:   i === 0 ? '#3DD6B0' : 'rgba(61,214,176,0.35)',
-                opacity:      i === 0 ? 1 : 0.28,
-                transition:   'all 0.35s ease',
-              }}
-            />
-          ))}
-        </div>
-
-        {/* ── Label ───────────────────────────────────────── */}
-        <span
+        {/* ── Vertical divider ──────────────────────────────── */}
+        <div
           style={{
-            fontSize:      '7.5px',
-            letterSpacing: '0.14em',
-            color:         'rgba(61,214,176,0.45)',
-            textTransform: 'uppercase',
-            fontWeight:    700,
+            width: '1px', height: '28px', flexShrink: 0,
+            background: 'rgba(61,214,176,0.12)',
           }}
-        >
-          SCROLL
-        </span>
+        />
+
+        {/* ── Progress dashes + label ───────────────────────── */}
+        <div className="flex flex-col gap-[6px]">
+
+          {/* 9 horizontal dashes */}
+          <div ref={dotsRef} className="flex items-center gap-[4px]">
+            {Array.from({ length: 9 }).map((_, i) => (
+              <span
+                key={i}
+                style={{
+                  display:      'block',
+                  width:        '12px',
+                  height:       '2px',
+                  borderRadius: '999px',
+                  background:   i === 0 ? '#3DD6B0' : 'rgba(61,214,176,0.18)',
+                  opacity:      i === 0 ? 1 : 0.20,
+                  transition:   'all 0.35s ease',
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Brand label — muted, not a headline */}
+          <span
+            style={{
+              fontSize:      '6.5px',
+              letterSpacing: '0.15em',
+              fontWeight:    700,
+              color:         'rgba(61,214,176,0.36)',
+              textTransform: 'uppercase',
+            }}
+          >
+            CompassInsights
+          </span>
+        </div>
 
       </div>
     </div>
