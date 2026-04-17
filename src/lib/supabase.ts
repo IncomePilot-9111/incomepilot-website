@@ -1,5 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 
+type BrowserClientOptions = {
+  detectSessionInUrl?: boolean
+}
+
 /**
  * Returns a Supabase browser client.
  *
@@ -10,7 +14,7 @@ import { createClient } from '@supabase/supabase-js'
  * These are safe to expose to the browser — the anon key is intentionally
  * public and protected by Row-Level Security policies on your Supabase project.
  */
-export function createBrowserClient() {
+export function createBrowserClient(options: BrowserClientOptions = {}) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
@@ -27,8 +31,8 @@ export function createBrowserClient() {
       persistSession: true,
       // Auto-refresh access tokens before they expire
       autoRefreshToken: true,
-      // Detect OAuth/magic-link redirects automatically
-      detectSessionInUrl: true,
+      // Only enable URL-based session detection on flows that actually need it
+      detectSessionInUrl: options.detectSessionInUrl ?? true,
     },
   })
 }
@@ -46,15 +50,18 @@ export const APP_SCHEME = 'incomepilot'
 /**
  * Build the deep link that opens the app after a successful verification.
  *
- * On success the app should resume from the auth confirmation screen
- * and sign the user in with the session tokens that were set by
- * supabase.auth.verifyOtp() above.
- *
- * The `?verified=1` query param lets the app know the link came from
- * a browser confirmation (so it can skip re-asking for the code).
+ * Only values that start with the registered app scheme are accepted.
+ * Any other value (http/https URLs, javascript: URIs, empty strings) is
+ * silently rejected and replaced with the safe default callback route.
+ * This prevents open-redirect and javascript: injection attacks via a
+ * crafted `redirect_to` query parameter.
  */
-export function buildAuthVerifiedDeepLink(): string {
-  return `${APP_SCHEME}://auth/verified?verified=1`
+export function buildAuthVerifiedDeepLink(redirectTo?: string | null): string {
+  const trimmed = redirectTo?.trim()
+  if (trimmed && trimmed.startsWith(`${APP_SCHEME}://`)) {
+    return trimmed
+  }
+  return `${APP_SCHEME}://auth/callback`
 }
 
 /**
