@@ -31,7 +31,7 @@ export default function GlobalBackground() {
       // Glow centre moves from 18 % (top of page) to 82 % (bottom of page)
       const y = 18 + progress * 64
       glowRef.current.style.background =
-        `radial-gradient(ellipse 70% 42% at 50% ${y}%, rgba(61,214,176,0.09) 0%, transparent 68%)`
+        `radial-gradient(ellipse 70% 42% at 50% ${y}%, rgba(61,214,176,0.055) 0%, transparent 68%)`
     }
     window.addEventListener('scroll', onScroll, { passive: true })
     onScroll()
@@ -40,7 +40,7 @@ export default function GlobalBackground() {
 
   return (
     <>
-      {/* 1 ── Concentric radar rings */}
+      {/* 1 ── Concentric radar rings — masked so outer rings fade out, no hard clip */}
       <div
         aria-hidden="true"
         className="fixed inset-0 z-[1] pointer-events-none"
@@ -49,9 +49,11 @@ export default function GlobalBackground() {
             circle at 50% 44%,
             transparent 0px,
             transparent 74px,
-            rgba(61,214,176,0.030) 74px,
-            rgba(61,214,176,0.030) 75px
+            rgba(61,214,176,0.018) 74px,
+            rgba(61,214,176,0.018) 75px
           )`,
+          maskImage:       'radial-gradient(ellipse 88% 88% at 50% 44%, black 0%, black 55%, transparent 82%)',
+          WebkitMaskImage: 'radial-gradient(ellipse 88% 88% at 50% 44%, black 0%, black 55%, transparent 82%)',
         }}
       />
 
@@ -63,15 +65,15 @@ export default function GlobalBackground() {
       >
         {/* Vertical axis */}
         <line x1="50%" y1="0%" x2="50%" y2="100%"
-          stroke="rgba(61,214,176,0.035)" strokeWidth="1" />
+          stroke="rgba(61,214,176,0.020)" strokeWidth="1" />
         {/* Horizontal axis at radar-centre height */}
         <line x1="0%" y1="44%" x2="100%" y2="44%"
-          stroke="rgba(61,214,176,0.035)" strokeWidth="1" />
+          stroke="rgba(61,214,176,0.020)" strokeWidth="1" />
         {/* Subtle diagonal cross */}
         <line x1="20%" y1="0%" x2="80%" y2="100%"
-          stroke="rgba(61,214,176,0.012)" strokeWidth="1" />
+          stroke="rgba(61,214,176,0.007)" strokeWidth="1" />
         <line x1="80%" y1="0%" x2="20%" y2="100%"
-          stroke="rgba(61,214,176,0.012)" strokeWidth="1" />
+          stroke="rgba(61,214,176,0.007)" strokeWidth="1" />
       </svg>
 
       {/* 3 ── Fine grid crosshatch */}
@@ -80,8 +82,8 @@ export default function GlobalBackground() {
         className="fixed inset-0 z-[1] pointer-events-none"
         style={{
           backgroundImage: `
-            linear-gradient(rgba(61,214,176,0.022) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(61,214,176,0.022) 1px, transparent 1px)
+            linear-gradient(rgba(61,214,176,0.013) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(61,214,176,0.013) 1px, transparent 1px)
           `,
           backgroundSize: '48px 48px',
         }}
@@ -100,7 +102,7 @@ export default function GlobalBackground() {
         className="fixed inset-0 z-[1] pointer-events-none"
         style={{
           background:
-            'radial-gradient(ellipse 70% 42% at 50% 18%, rgba(61,214,176,0.09) 0%, transparent 68%)',
+            'radial-gradient(ellipse 70% 42% at 50% 18%, rgba(61,214,176,0.055) 0%, transparent 68%)',
         }}
       />
 

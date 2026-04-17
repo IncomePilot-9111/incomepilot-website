@@ -299,13 +299,31 @@
 }
 
 .radar-sweep-beam {
+  /*
+   * Conic wedge — the sweep "ping".
+   * Opacity reduced; mask-image fades the outer tip to transparent
+   * so the ray appears to dissolve rather than clip at the viewport edge.
+   */
   background: conic-gradient(
     from 0deg at 50% 44%,
-    transparent        0deg,
-    rgba(61,214,176,0.055)  8deg,
-    rgba(61,214,176,0.028) 20deg,
-    transparent       38deg,
-    transparent      360deg
+    transparent            0deg,
+    rgba(61,214,176,0.038)  8deg,
+    rgba(61,214,176,0.018) 22deg,
+    transparent            40deg,
+    transparent           360deg
+  );
+  /* Radial fade mask: full opacity at centre → transparent at ~70% radius */
+  mask-image: radial-gradient(
+    ellipse 72% 72% at 50% 44%,
+    black 0%,
+    black 38%,
+    transparent 68%
+  );
+  -webkit-mask-image: radial-gradient(
+    ellipse 72% 72% at 50% 44%,
+    black 0%,
+    black 38%,
+    transparent 68%
   );
   transform-origin: 50% 44%;
   animation: radar-sweep 16s linear infinite;
