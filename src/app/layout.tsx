@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
 import './globals.css'
+import GlobalBackground from '@/components/GlobalBackground'
+import ScrollCompass from '@/components/ScrollCompass'
 
 /* ─── Metadata ──────────────────────────────────────────────────────────────── */
 
@@ -75,7 +77,14 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="bg-[#070F15] text-[#E8F5F2] antialiased">
-        {children}
+        {/* Fixed radar/compass texture — behind all pages */}
+        <GlobalBackground />
+        {/* Scroll-linked compass — on every page */}
+        <ScrollCompass />
+        {/* Page content — above the fixed background layers */}
+        <div className="relative z-[2]">
+          {children}
+        </div>
       </body>
     </html>
   )

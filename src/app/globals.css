@@ -287,6 +287,30 @@
   transform-origin: center;
 }
 
+/* ─── Global radar sweep beam ───────────────────────────── */
+/**
+ * Slow rotating "ping" wedge — classic radar scope sweep.
+ * The conic-gradient origin (50% 44%) matches the radar ring centre.
+ * transform-origin must match so the wedge orbits the correct point.
+ */
+@keyframes radar-sweep {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.radar-sweep-beam {
+  background: conic-gradient(
+    from 0deg at 50% 44%,
+    transparent        0deg,
+    rgba(61,214,176,0.055)  8deg,
+    rgba(61,214,176,0.028) 20deg,
+    transparent       38deg,
+    transparent      360deg
+  );
+  transform-origin: 50% 44%;
+  animation: radar-sweep 16s linear infinite;
+}
+
 /* ─── Compass ripple/pulse rings ─────────────────────────── */
 @keyframes compass-ripple-expand {
   0%   { transform: scale(1);   opacity: 0.55; }
