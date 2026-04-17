@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient as createSupabaseBrowserClient } from '@supabase/ssr'
 
 type BrowserClientOptions = {
   detectSessionInUrl?: boolean
@@ -9,23 +9,23 @@ type BrowserClientOptions = {
  *
  * Env vars required (set in .env.local or Vercel dashboard):
  *   NEXT_PUBLIC_SUPABASE_URL
- *   NEXT_PUBLIC_SUPABASE_ANON_KEY
+ *   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
  *
- * These are safe to expose to the browser — the anon key is intentionally
- * public and protected by Row-Level Security policies on your Supabase project.
+ * These are safe to expose to the browser and protected by Row-Level Security
+ * policies on your Supabase project.
  */
 export function createBrowserClient(options: BrowserClientOptions = {}) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 
   if (!url || !key) {
     throw new Error(
       '[IncomePilot] Supabase env vars not set. ' +
-        'Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local.',
+        'Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY to .env.local.',
     )
   }
 
-  return createClient(url, key, {
+  return createSupabaseBrowserClient(url, key, {
     auth: {
       // Store session in localStorage so it persists across tabs
       persistSession: true,

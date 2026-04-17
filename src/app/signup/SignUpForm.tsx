@@ -4,40 +4,61 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { getSiteUrl, normalizeAuthMessage } from '@/lib/auth-helpers'
 
-export default function SignInForm() {
+export default function SignUpForm() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setErrorMessage('')
+    setSuccessMessage('')
 
     const trimmedEmail = email.trim()
-    if (!trimmedEmail || !password) {
-      setErrorMessage('Enter your email and password to sign in.')
+    if (!trimmedEmail || !password || !confirmPassword) {
+      setErrorMessage('Enter your email and password to create your account.')
+      return
+    }
+
+    if (password !== confirmPassword) {
+      setErrorMessage('Your passwords do not match yet.')
       return
     }
 
     setLoading(true)
 
     const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signUp({
       email: trimmedEmail,
       password,
+      options: {
+        emailRedirectTo: getSiteUrl('/auth/callback?next=/dashboard'),
+      },
     })
 
     if (error) {
       setLoading(false)
-      setErrorMessage(normalizeErrorMessage(error.message))
+      setErrorMessage(normalizeAuthMessage(error.message))
       return
     }
 
-    router.push('/dashboard')
-    router.refresh()
+    setLoading(false)
+    setPassword('')
+    setConfirmPassword('')
+
+    if (data.session) {
+      router.push('/dashboard')
+      router.refresh()
+      return
+    }
+
+    setSuccessMessage('Check your email to confirm your account.')
   }
 
   return (
@@ -46,17 +67,15 @@ export default function SignInForm() {
       style={{ borderRadius: '24px' }}
     >
       <form className="space-y-5" onSubmit={handleSubmit}>
-
-        {/* Email */}
         <div className="space-y-1.5">
           <label
-            htmlFor="email"
+            htmlFor="signup-email"
             className="block text-xs font-semibold text-[#8CB4C0] tracking-wide uppercase"
           >
             Email address
           </label>
           <input
-            id="email"
+            id="signup-email"
             type="email"
             autoComplete="email"
             placeholder="you@example.com"
@@ -66,26 +85,17 @@ export default function SignInForm() {
           />
         </div>
 
-        {/* Password */}
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <label
-              htmlFor="password"
-              className="block text-xs font-semibold text-[#8CB4C0] tracking-wide uppercase"
-            >
-              Password
-            </label>
-            <Link
-              href="/forgot-password"
-              className="text-xs text-[#4A8A9A] hover:text-[#3DD6B0] transition-colors underline underline-offset-2"
-            >
-              Forgot password?
-            </Link>
-          </div>
+          <label
+            htmlFor="signup-password"
+            className="block text-xs font-semibold text-[#8CB4C0] tracking-wide uppercase"
+          >
+            Password
+          </label>
           <input
-            id="password"
+            id="signup-password"
             type="password"
-            autoComplete="current-password"
+            autoComplete="new-password"
             placeholder="••••••••"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
@@ -93,7 +103,24 @@ export default function SignInForm() {
           />
         </div>
 
-        {/* Sign In button */}
+        <div className="space-y-1.5">
+          <label
+            htmlFor="signup-confirm-password"
+            className="block text-xs font-semibold text-[#8CB4C0] tracking-wide uppercase"
+          >
+            Confirm password
+          </label>
+          <input
+            id="signup-confirm-password"
+            type="password"
+            autoComplete="new-password"
+            placeholder="••••••••"
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.target.value)}
+            className="w-full h-11 rounded-xl px-4 text-sm text-[#E8F5F2] placeholder-[#3E6474] bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.09)] focus:outline-none focus:border-[rgba(61,214,176,0.45)] focus:bg-[rgba(61,214,176,0.04)] transition-all duration-200"
+          />
+        </div>
+
         <button
           type="submit"
           disabled={loading}
@@ -104,7 +131,7 @@ export default function SignInForm() {
             boxShadow: '0 4px 24px rgba(61,214,176,0.25)',
           }}
         >
-          <span className="relative z-10">{loading ? 'Signing in...' : 'Sign In'}</span>
+          <span className="relative z-10">{loading ? 'Creating account...' : 'Create account'}</span>
           <div
             className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
             style={{ background: 'linear-gradient(135deg, #5EE4C0 0%, #3DD6B0 100%)' }}
@@ -117,38 +144,28 @@ export default function SignInForm() {
           </p>
         ) : null}
 
+        {successMessage ? (
+          <p className="text-sm text-[#8FE3CE]" aria-live="polite">
+            {successMessage}
+          </p>
+        ) : null}
       </form>
 
-      {/* Divider */}
       <div className="flex items-center gap-3 my-6">
         <div className="flex-1 h-px bg-[rgba(255,255,255,0.07)]" />
         <span className="text-xs text-[#3E6474] font-medium">or</span>
         <div className="flex-1 h-px bg-[rgba(255,255,255,0.07)]" />
       </div>
 
-      {/* Create account */}
       <p className="text-center text-sm text-[#6E9BAA]">
-        Don&apos;t have an account?{' '}
+        Already have an account?{' '}
         <Link
-          href="/signup"
+          href="/signin"
           className="font-semibold text-[#3DD6B0] hover:text-[#5EE4C0] transition-colors"
         >
-          Create one
+          Sign in
         </Link>
       </p>
     </div>
   )
-}
-
-function normalizeErrorMessage(message: string) {
-  const cleanedMessage = message.replace(/^AuthApiError:\s*/i, '').trim()
-  if (!cleanedMessage) {
-    return 'Unable to sign in right now. Please try again.'
-  }
-
-  if (/fetch failed|network|timeout|timed out/i.test(cleanedMessage)) {
-    return 'Unable to sign in right now. Please try again.'
-  }
-
-  return cleanedMessage
 }
