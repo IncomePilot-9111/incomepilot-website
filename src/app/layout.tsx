@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
+import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import GlobalBackground from '@/components/GlobalBackground'
 import ScrollCompass from '@/components/ScrollCompass'
@@ -85,6 +86,7 @@ export default function RootLayout({
         <div className="relative z-[2]">
           {children}
         </div>
+        <Analytics />
       </body>
     </html>
   )
