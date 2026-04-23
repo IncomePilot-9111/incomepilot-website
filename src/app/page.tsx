@@ -333,10 +333,9 @@ export default function HomePage() {
           <div className="relative z-10 flex flex-col items-center">
 
             {/*
-              Logo — drop-shadow filter creates the dark cloud by tracing the
-              IMAGE ALPHA CHANNEL (the circular logo shape), not the rectangular
-              box. This is the only technique that physically cannot produce a
-              square outline. No wrapper, no container, no background div needed.
+              clip-path:circle() cuts the PNG canvas to a circle at pixel level —
+              no square corners survive. drop-shadow then traces that circular
+              alpha shape, making a square outline physically impossible.
             */}
             <Image
               src="/hero-logo.png"
@@ -346,6 +345,10 @@ export default function HomePage() {
               priority
               className="animate-fade-in w-44 h-44 sm:w-52 sm:h-52 object-contain"
               style={{
+                WebkitMaskImage:
+                  'radial-gradient(circle at 50% 50%, black 42%, transparent 52%)',
+                maskImage:
+                  'radial-gradient(circle at 50% 50%, black 42%, transparent 52%)',
                 filter:
                   'drop-shadow(0 0 22px rgba(0,3,8,0.98)) ' +
                   'drop-shadow(0 0 50px rgba(0,4,10,0.85)) ' +
