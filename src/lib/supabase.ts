@@ -20,7 +20,7 @@ export function createBrowserClient(options: BrowserClientOptions = {}) {
 
   if (!url || !key) {
     throw new Error(
-      '[IncomePilot] Supabase env vars not set. ' +
+      '[Valkoda] Supabase env vars not set. ' +
         'Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY to .env.local.',
     )
   }
@@ -40,12 +40,11 @@ export function createBrowserClient(options: BrowserClientOptions = {}) {
 /* ─── Deep-link helpers ──────────────────────────────────────────────────── */
 
 /**
- * The custom-scheme URI that opens the IncomePilot app.
+ * The custom-scheme URI that opens the PolarisPilot app.
  *
- * Flutter registers this via intent-filter (Android) and Info.plist (iOS).
- * Update this if the scheme ever changes.
+ * The custom-scheme URI that opens the Valkoda / PolarisPilot app.
  */
-export const APP_SCHEME = 'incomepilot'
+export const APP_SCHEME = 'valkoda'
 
 /**
  * Build the deep link that opens the app after a successful verification.

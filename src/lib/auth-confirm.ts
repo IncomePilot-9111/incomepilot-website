@@ -64,7 +64,7 @@ export function resolveAuthConfirmParams(
       kind: 'invalid',
       heading: 'Verification link unavailable',
       detail:
-        'This verification link is missing required information. Please return to IncomePilot and request a new verification email.',
+        'This verification link is missing required information. Please return to PolarisPilot and request a new verification email.',
       canRetry: true,
     }
   }
@@ -74,7 +74,7 @@ export function resolveAuthConfirmParams(
       kind: 'invalid',
       heading: 'Verification link unavailable',
       detail:
-        'This verification link is no longer valid. Please return to IncomePilot and request a new verification email.',
+        'This verification link is no longer valid. Please return to PolarisPilot and request a new verification email.',
       canRetry: true,
     }
   }
@@ -102,7 +102,7 @@ export function mapVerificationFailure(raw: string): AuthConfirmErrorState {
     return {
       heading: 'Verification link unavailable',
       detail:
-        'This verification link may have expired, already been used, or is no longer valid.\n\nPlease return to IncomePilot and request a new verification email.',
+        'This verification link may have expired, already been used, or is no longer valid.\n\nPlease return to PolarisPilot and request a new verification email.',
       canRetry: true,
     }
   }
@@ -118,20 +118,20 @@ export function mapVerificationFailure(raw: string): AuthConfirmErrorState {
   ) {
     return {
       heading: 'Service unavailable',
-      detail: 'IncomePilot is having trouble connecting right now. Please try again in a moment.',
+      detail: 'PolarisPilot is having trouble connecting right now. Please try again in a moment.',
       canRetry: true,
     }
   }
 
   return {
     heading: 'Service unavailable',
-    detail: 'IncomePilot is having trouble connecting right now. Please try again in a moment.',
+    detail: 'PolarisPilot is having trouble connecting right now. Please try again in a moment.',
     canRetry: true,
   }
 }
 
 export function defaultAuthCallbackDeepLink(): string {
-  return 'incomepilot://auth/callback'
+  return 'valkoda://auth/callback'
 }
 
 export function sanitizeRedirectTarget(raw: string | null): string | null {

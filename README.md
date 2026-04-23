@@ -1,6 +1,6 @@
-# IncomePilot Website
+# Valkoda Website
 
-Premium web presence for [incomepilot.app](https://incomepilot.app).
+Premium web presence for [valkoda.app](https://valkoda.app), with PolarisPilot positioned as Valkoda's first Pioneer Alpha product.
 
 Built with **Next.js 14 (App Router)** · **TypeScript** · **Tailwind CSS** · **Supabase Auth**
 
@@ -10,11 +10,11 @@ Built with **Next.js 14 (App Router)** · **TypeScript** · **Tailwind CSS** · 
 
 | Route | Purpose |
 |-------|---------|
-| `/` | Landing page — branding, features, coming-soon badges |
+| `/` | Landing page — company branding, PolarisPilot product messaging, early-access CTAs |
 | `/auth/confirm` | Supabase email-verification callback + app deep-link |
 | `/privacy` | Privacy Policy |
 | `/terms` | Terms of Use |
-| `/support` | Help centre + contact cards + FAQ |
+| `/support` | Contact page + support cards + FAQ |
 
 ---
 
@@ -51,7 +51,7 @@ In your Supabase dashboard:
 **Authentication → URL Configuration → Site URL**
 
 ```
-https://incomepilot.app
+https://valkoda.app
 ```
 
 ### 2. Add the redirect URL pattern
@@ -59,7 +59,7 @@ https://incomepilot.app
 Under **Redirect URLs**, add:
 
 ```
-https://incomepilot.app/auth/**
+https://valkoda.app/auth/**
 ```
 
 This allows the email verification link to redirect back to `/auth/confirm`.
@@ -67,7 +67,7 @@ This allows the email verification link to redirect back to `/auth/confirm`.
 ### 3. Auth email templates (optional but recommended)
 
 Edit your "Confirm signup" email template so the `{{ .ConfirmationURL }}`
-points to `https://incomepilot.app/auth/confirm` (Supabase does this
+points to `https://valkoda.app/auth/confirm` (Supabase does this
 automatically once Site URL is set correctly).
 
 ---
@@ -77,24 +77,24 @@ automatically once Site URL is set correctly).
 ```
 User signs up in app
   → Supabase sends email with link to:
-     https://incomepilot.app/auth/confirm?token_hash=...&type=signup
+     https://valkoda.app/auth/confirm?token_hash=...&type=signup
 
 /auth/confirm page:
   1. Reads token_hash + type from URL
   2. Calls supabase.auth.verifyOtp({ token_hash, type })
-  3. On success → tries to open incomepilot:// deep link
+  3. On success → tries to open valkoda:// deep link
   4. Regardless of whether app opens → shows success UI
   5. On error → shows clean error state with retry guidance
 ```
 
 ### Same-device flow (phone that has the app)
 The deep-link fires and the OS hands control back to the app.
-The user lands on the verified screen inside IncomePilot.
+The user lands on the verified screen inside PolarisPilot.
 
 ### Cross-device flow (verified on desktop, app on phone)
 The deep-link attempt silently fails (OS has no handler).
 The page stays on the success state with the message:
-> "If IncomePilot does not open automatically, return to the app and sign in there."
+> "If PolarisPilot does not open automatically, return to the app and sign in there."
 
 ---
 
@@ -103,12 +103,12 @@ The page stays on the success state with the message:
 The app is opened via the custom URI scheme:
 
 ```
-incomepilot://auth/verified?verified=1
+valkoda://auth/verified?verified=1
 ```
 
 This is registered in the Flutter app via:
-- **Android**: `AndroidManifest.xml` intent-filter for `incomepilot://`
-- **iOS**: `Info.plist` CFBundleURLSchemes entry `incomepilot`
+- **Android**: `AndroidManifest.xml` intent-filter for `valkoda://`
+- **iOS**: `Info.plist` CFBundleURLSchemes entry `valkoda`
 
 To update the scheme, change `APP_SCHEME` in `src/lib/supabase.ts`.
 
@@ -132,7 +132,7 @@ vercel                  # follow prompts; set root to WEBSITE/
 
 ### Custom domain
 
-1. In Vercel → Domains → add `incomepilot.app`
+1. In Vercel → Domains → add `valkoda.app`
 2. Follow the DNS instructions (CNAME/A records)
 3. SSL certificate is provisioned automatically
 
