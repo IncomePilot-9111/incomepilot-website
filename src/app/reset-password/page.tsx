@@ -4,8 +4,8 @@ import AuthPageShell from '@/components/AuthPageShell'
 import ResetPasswordForm from './ResetPasswordForm'
 
 export const metadata: Metadata = {
-  title: 'Reset Password — IncomePilot',
-  description: 'Choose a new password for your IncomePilot account.',
+  title: 'Reset Password',
+  description: 'Choose a new password for your PolarisPilot account.',
   robots: { index: false, follow: false },
 }
 
@@ -13,7 +13,7 @@ export default function ResetPasswordPage() {
   return (
     <AuthPageShell
       title="Choose a new password"
-      subtitle="Enter a new password for your IncomePilot account"
+      subtitle="Enter a new password for your PolarisPilot account"
     >
       <Suspense fallback={<ResetPasswordLoadingState />}>
         <ResetPasswordForm />

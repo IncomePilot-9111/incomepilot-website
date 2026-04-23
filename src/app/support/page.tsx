@@ -3,8 +3,8 @@ import Nav from '@/components/Nav'
 import Footer from '@/components/Footer'
 
 export const metadata: Metadata = {
-  title: 'Support — IncomePilot',
-  description: 'Get help with IncomePilot. Account, features, data, and privacy support.',
+  title: 'Contact',
+  description: 'Get help with Valkoda and PolarisPilot. Account, product, data, and privacy support.',
 }
 
 const topics = [
@@ -26,7 +26,7 @@ const topics = [
       </svg>
     ),
     title:  'App Features',
-    detail: 'Questions about shift logging, freelance, delivery, rideshare, rentals, goals, or CompassInsights.',
+    detail: 'Questions about PolarisPilot modules, goals, account access, or intelligent earnings guidance.',
   },
   {
     icon: (
@@ -44,7 +44,7 @@ const topics = [
       </svg>
     ),
     title:  'Privacy & Data Removal',
-    detail: 'Requests to delete your account or data, or questions about how IncomePilot stores and protects your information.',
+    detail: 'Requests to delete your account or data, or questions about how Valkoda stores and protects your information.',
   },
 ]
 
@@ -68,13 +68,13 @@ export default function SupportPage() {
 
           {/* Header */}
           <div className="mb-12">
-            <p className="section-eyebrow">Help centre</p>
+            <p className="section-eyebrow">Contact</p>
             <h1 className="text-3xl sm:text-4xl font-bold text-[#E8F5F2] mb-3">
-              How can we help?
+              Talk to <span className="brand-wordmark text-[0.72em] sm:text-[0.74em] text-[#E8F5F2]">Valkoda</span>
             </h1>
             <p className="text-[#6E9BAA] text-base leading-relaxed">
-              We&apos;re a small team and we read every message. Choose a topic below
-              or send us a message directly.
+              We read every message. Choose a topic below or contact us directly
+              about PolarisPilot, account access, privacy, or product questions.
             </p>
           </div>
 
@@ -105,17 +105,17 @@ export default function SupportPage() {
 
             <ContactCard
               label="General support"
-              email="support@incomepilot.app"
+              email="support@valkoda.app"
               detail="Questions, feedback, feature requests, or anything else."
             />
             <ContactCard
               label="Privacy & data requests"
-              email="privacy@incomepilot.app"
+              email="privacy@valkoda.app"
               detail="Account deletion, data export, or privacy enquiries."
             />
             <ContactCard
               label="Legal & terms"
-              email="legal@incomepilot.app"
+              email="legal@valkoda.app"
               detail="Partnership, licensing, or legal correspondence."
             />
           </div>
@@ -130,31 +130,31 @@ export default function SupportPage() {
 
             <FaqItem
               question="My verification email link isn't working."
-              answer="Verification links expire after a short period for security. Go back to the IncomePilot sign-in screen, select 'Resend verification email', and then tap the new link in your inbox within a few minutes of receiving it. If you continue to have trouble, contact support@incomepilot.app."
+              answer="Verification links expire after a short period for security. Go back to the PolarisPilot sign-in screen, select 'Resend verification email', and then tap the new link in your inbox within a few minutes of receiving it. If you continue to have trouble, contact support@valkoda.app."
             />
             <FaqItem
               question="I verified my email on my computer but the app still shows as unverified."
-              answer="Verifying on a different device doesn't automatically sign in the app. Return to IncomePilot on your phone and sign in with your email and password — your account is now active and the app will reflect that once you sign in."
+              answer="Verifying on a different device doesn't automatically sign in the app. Return to PolarisPilot on your phone and sign in with your email and password - your account is now active and the app will reflect that once you sign in."
             />
             <FaqItem
               question="How do I delete my account and data?"
-              answer="You can delete your account directly from the app's settings screen. This will remove your account and any cloud-backed data associated with it within 30 days. Data stored locally on your device is removed when you delete the app. If you prefer to submit a deletion request in writing, email privacy@incomepilot.app. Note: deleting the app from your device does not delete your account."
+              answer="You can delete your account directly from the app's settings screen. This will remove your account and any cloud-backed data associated with it within 30 days. Data stored locally on your device is removed when you delete the app. If you prefer to submit a deletion request in writing, email privacy@valkoda.app. Note: deleting the app from your device does not delete your account."
             />
             <FaqItem
               question="What happens to my local data if I delete the app?"
-              answer="Deleting the app removes the local data stored on your device. However, it does not delete your account or any cloud-backed data associated with a premium subscription. To fully delete your account and all associated data, use the in-app account deletion option in settings, or contact privacy@incomepilot.app."
+              answer="Deleting the app removes the local data stored on your device. However, it does not delete your account or any cloud-backed data associated with a premium subscription. To fully delete your account and all associated data, use the in-app account deletion option in settings, or contact privacy@valkoda.app."
             />
             <FaqItem
-              question="Is IncomePilot available yet?"
-              answer="IncomePilot is currently in final development. iOS and Android apps are launching soon. Sign up on the website to be notified when they go live."
+              question="How do I access PolarisPilot?"
+              answer="PolarisPilot is being introduced through Pioneer Alpha early access. Use the website sign-up flow to request access and stay aligned with the next product milestones."
             />
             <FaqItem
-              question="Does IncomePilot store my earnings data on a server?"
-              answer="By default, your earnings and work data is stored locally on your device — not on our servers. If you use premium cloud-backed features (such as cloud backup or cross-device restore), eligible data may be securely backed up to our infrastructure to support those features. This is described clearly in your in-app settings when those features are active."
+              question="Does PolarisPilot store my earnings data on a server?"
+              answer="By default, your earnings and work data is stored locally on your device - not on our servers. If you use premium cloud-backed features (such as cloud backup or cross-device restore), eligible data may be securely backed up to our infrastructure to support those features. This is described clearly in your in-app settings when those features are active."
             />
             <FaqItem
               question="Can I export my data?"
-              answer="Yes. IncomePilot supports data export from within the app. For formal data portability requests, contact privacy@incomepilot.app and we will respond within 30 days."
+              answer="Yes. PolarisPilot supports data export from within the app. For formal data portability requests, contact privacy@valkoda.app and we will respond within 30 days."
             />
           </div>
 

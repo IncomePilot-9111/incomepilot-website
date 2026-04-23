@@ -4,8 +4,8 @@ import Logo from '@/components/Logo'
 import SignInForm from './SignInForm'
 
 export const metadata: Metadata = {
-  title: 'Sign In — IncomePilot',
-  description: 'Sign in to your IncomePilot account.',
+  title: 'Sign In',
+  description: 'Sign in to your PolarisPilot account.',
   robots: { index: false, follow: false },
 }
 
@@ -48,7 +48,7 @@ export default function SignInPage() {
               Welcome back
             </h1>
             <p className="text-sm text-[#6E9BAA]">
-              Sign in to your IncomePilot account
+              Sign in to your PolarisPilot account
             </p>
           </div>
 
@@ -65,7 +65,7 @@ export default function SignInPage() {
             <Link href="/privacy" className="hover:text-[#3DD6B0] transition-colors underline underline-offset-2">
               Privacy Policy
             </Link>
-            . Your data stays on your device by default. Premium unlocks secure cloud backup.
+            . Your data stays on your device by default. Secure cloud continuity is available when enabled.
           </p>
         </div>
       </main>
@@ -73,7 +73,7 @@ export default function SignInPage() {
       {/* Footer note */}
       <footer className="relative z-10 text-center py-6">
         <p className="text-xs text-[#2E5060]">
-          &copy; {new Date().getFullYear()} IncomePilot. All rights reserved.
+          &copy; {new Date().getFullYear()} Valkoda. All rights reserved.
         </p>
       </footer>
 

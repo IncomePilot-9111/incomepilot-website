@@ -2,63 +2,63 @@ import type { Metadata } from 'next'
 import LegalLayout from '@/components/LegalLayout'
 
 export const metadata: Metadata = {
-  title: 'Terms of Use — IncomePilot',
-  description: 'The terms and conditions governing your use of IncomePilot.',
+  title: 'Terms of Use',
+  description: 'The terms and conditions governing your use of Valkoda and PolarisPilot.',
 }
 
 export default function TermsPage() {
   return (
     <LegalLayout
       title="Terms of Use"
-      subtitle="Please read these terms carefully before using IncomePilot."
+      subtitle="Please read these terms carefully before using Valkoda and PolarisPilot."
       lastUpdated="April 2025"
     >
 
       <h2>1. Acceptance of Terms</h2>
       <p>
-        By downloading, installing, or using the IncomePilot application or
-        website (the &quot;Services&quot;), you agree to be bound by these Terms of Use
+        By downloading, installing, or using the PolarisPilot application or the
+        Valkoda website (the &quot;Services&quot;), you agree to be bound by these Terms of Use
         (&quot;Terms&quot;). If you do not agree, do not use the Services.
       </p>
       <p>
-        These Terms form a legally binding agreement between you and IncomePilot
+        These Terms form a legally binding agreement between you and Valkoda
         (&quot;we&quot;, &quot;us&quot;, or &quot;our&quot;).
       </p>
 
       <h2>2. Eligibility</h2>
       <p>
-        You must be at least 13 years of age to use IncomePilot. By creating an
-        account you confirm that you meet this requirement. If you use IncomePilot
+        You must be at least 13 years of age to use PolarisPilot. By creating an
+        account you confirm that you meet this requirement. If you use PolarisPilot
         on behalf of an organisation, you represent that you have authority to bind
         that organisation to these Terms.
       </p>
 
       <h2>3. Description of Services</h2>
       <p>
-        IncomePilot is a personal earnings intelligence application designed for
-        people who earn through one or more income streams — including shift work,
+        PolarisPilot is a personal earnings intelligence application from Valkoda, designed for
+        people who earn through one or more income streams - including shift work,
         freelance, delivery, rideshare, rentals, and more. The Services allow you
         to log earnings, track expenses, set goals, view summaries, and access
-        intelligence features powered by CompassInsightEngine.
+        intelligent guidance features.
       </p>
       <p>
-        <strong>IncomePilot is not a financial advisory, accounting, tax, or legal
+        <strong>PolarisPilot is not a financial advisory, accounting, tax, or legal
         service.</strong> Nothing in the Services constitutes financial, investment,
         tax, legal, or professional advice. Always consult a qualified professional
         for advice specific to your circumstances.
       </p>
       <p>
-        <strong>Local-first by default.</strong> IncomePilot stores your earnings
+        <strong>Local-first by default.</strong> PolarisPilot stores your earnings
         and work data on your device by default. Premium features may involve
         secure cloud backup, restore, and sync as described in Section 7.
       </p>
 
       <h2>4. Accounts and Security</h2>
-      <p>To access the full functionality of IncomePilot you must create an account. You agree to:</p>
+      <p>To access the full functionality of PolarisPilot you must create an account. You agree to:</p>
       <ul>
         <li>Provide accurate and complete registration information</li>
         <li>Keep your password secure and not share it with others</li>
-        <li>Notify us promptly of any unauthorised access to your account at <a href="mailto:support@incomepilot.app">support@incomepilot.app</a></li>
+        <li>Notify us promptly of any unauthorised access to your account at <a href="mailto:support@valkoda.app">support@valkoda.app</a></li>
         <li>Accept responsibility for all activity that occurs under your account</li>
       </ul>
       <p>
@@ -82,7 +82,7 @@ export default function TermsPage() {
       <h2>6. Your Data and Content</h2>
       <p>
         You retain full ownership of the earnings, expense, and work data you enter
-        into IncomePilot. By using the Services you grant us a limited, non-exclusive,
+        into PolarisPilot. By using the Services you grant us a limited, non-exclusive,
         royalty-free licence to store, process, and display that data solely for the
         purpose of providing the Services to you.
       </p>
@@ -92,13 +92,13 @@ export default function TermsPage() {
         <a href="/privacy">Privacy Policy</a>.
       </p>
       <p>
-        You are responsible for the accuracy of the information you enter. IncomePilot
+        You are responsible for the accuracy of the information you enter. PolarisPilot
         processes and presents your data based on what you provide.
       </p>
 
       <h2>7. Local-First Services and Premium Cloud-Backed Features</h2>
       <p>
-        <strong>Local-first default.</strong> IncomePilot is built so that your
+        <strong>Local-first default.</strong> PolarisPilot is built so that your
         earnings and work data lives on your device by default. The core app
         functions locally and does not require cloud infrastructure for standard
         personal use.
@@ -108,7 +108,7 @@ export default function TermsPage() {
         cloud-backed functionality including secure cloud backup, cross-device
         restore, sync, and connected premium experiences. When those features are
         active and eligible, data may be securely transmitted to and stored on
-        IncomePilot&apos;s cloud infrastructure to support backup, continuity, and
+        Valkoda&apos;s cloud infrastructure to support backup, continuity, and
         restore.
       </p>
       <p>
@@ -120,14 +120,14 @@ export default function TermsPage() {
 
       <h2>8. Paid Features, Subscriptions, and Billing</h2>
       <p>
-        IncomePilot may offer premium features through a paid subscription.
-        Subscriptions are billed through the platform you use to purchase them —
-        the Apple App Store or Google Play Store. Subscription management, billing
+        PolarisPilot may offer premium features through a paid subscription.
+        Subscriptions are billed through the platform you use to purchase them,
+        either the Apple App Store or Google Play Store. Subscription management, billing
         cycles, and refund entitlements for platform purchases are governed by
-        Apple&apos;s or Google&apos;s terms and policies, not by IncomePilot directly.
+        Apple&apos;s or Google&apos;s terms and policies, not by Valkoda directly.
       </p>
       <p>
-        Where purchases are made directly through IncomePilot (outside a platform
+        Where purchases are made directly through Valkoda (outside a platform
         store), we will describe billing terms clearly at the point of purchase.
       </p>
       <p>
@@ -144,7 +144,7 @@ export default function TermsPage() {
 
       <h2>9. Third-Party Services</h2>
       <p>
-        IncomePilot uses third-party services to operate. These may include
+        Valkoda uses third-party services to operate. These may include
         authentication and cloud infrastructure (Supabase), hosting (Vercel), and
         subscription management (RevenueCat, Apple, Google). Your use of these
         services is also subject to their respective terms and privacy policies.
@@ -153,14 +153,14 @@ export default function TermsPage() {
 
       <h2>10. No Financial, Tax, Legal, or Professional Advice</h2>
       <p>
-        IncomePilot is a personal productivity and intelligence tool. The
+        PolarisPilot is a personal productivity and intelligence tool. The
         calculations, forecasts, summaries, tax estimates, goal projections, and
         insights it provides are based on the data you enter and are for
         informational and planning purposes only.
       </p>
       <p>
-        Nothing in IncomePilot constitutes financial advice, tax advice, legal advice,
-        accounting advice, or investment advice. IncomePilot does not replace a
+        Nothing in PolarisPilot constitutes financial advice, tax advice, legal advice,
+        accounting advice, or investment advice. PolarisPilot does not replace a
         qualified accountant, financial adviser, or tax professional. Always verify
         important financial or tax figures with an appropriate professional before
         acting on them.
@@ -168,17 +168,17 @@ export default function TermsPage() {
 
       <h2>11. Accuracy and User Responsibility</h2>
       <p>
-        The accuracy of IncomePilot&apos;s calculations, summaries, and estimates depends
+        The accuracy of PolarisPilot&apos;s calculations, summaries, and estimates depends
         entirely on the accuracy and completeness of the information you enter. We
         make no warranty that results are correct, complete, or appropriate for any
         particular purpose. You are solely responsible for reviewing and verifying
-        figures that matter — particularly for tax, reporting, or financial
+        figures that matter - particularly for tax, reporting, or financial
         decision-making purposes.
       </p>
 
       <h2>12. Service Availability and Changes</h2>
       <p>
-        We aim to keep IncomePilot available and functioning well, but we do not
+        We aim to keep PolarisPilot available and functioning well, but we do not
         warrant uninterrupted or error-free access to the Services. We may modify,
         suspend, or discontinue any part of the Services at any time, with or
         without notice. Where we make material changes that affect you, we will
@@ -192,8 +192,8 @@ export default function TermsPage() {
 
       <h2>13. Intellectual Property</h2>
       <p>
-        The Services — including all software, design, branding, CompassInsightEngine,
-        and content — are owned by IncomePilot and protected by applicable
+        The Services - including all software, design, branding, PolarisPilot,
+        and content - are owned by Valkoda and protected by applicable
         intellectual property laws. Nothing in these Terms grants you any right to
         use our trademarks, logos, or brand elements without our prior written
         consent.
@@ -209,7 +209,7 @@ export default function TermsPage() {
       <p>
         You may delete your account at any time from within the app settings or
         by contacting{' '}
-        <a href="mailto:privacy@incomepilot.app">privacy@incomepilot.app</a>.
+        <a href="mailto:privacy@valkoda.app">privacy@valkoda.app</a>.
         Upon deletion, your account and associated cloud-backed data will be removed
         in accordance with our <a href="/privacy">Privacy Policy</a>.
       </p>
@@ -227,7 +227,7 @@ export default function TermsPage() {
         UNINTERRUPTED, ERROR-FREE, OR COMPLETELY SECURE.
       </p>
       <p>
-        FORECASTS, PREDICTIONS, AND INSIGHTS GENERATED BY INCOMEPILOT ARE
+        FORECASTS, PREDICTIONS, AND INSIGHTS GENERATED BY POLARISPILOT ARE
         ESTIMATES BASED ON USER-PROVIDED DATA. THEY ARE NOT GUARANTEED TO BE
         ACCURATE AND SHOULD NOT BE RELIED ON AS A SUBSTITUTE FOR PROFESSIONAL
         FINANCIAL ADVICE.
@@ -235,16 +235,16 @@ export default function TermsPage() {
 
       <h2>16. Limitation of Liability</h2>
       <p>
-        TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, INCOMEPILOT SHALL NOT
+        TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, VALKODA SHALL NOT
         BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE
-        DAMAGES — INCLUDING LOSS OF PROFITS, DATA, GOODWILL, OR BUSINESS — ARISING
+        DAMAGES - INCLUDING LOSS OF PROFITS, DATA, GOODWILL, OR BUSINESS - ARISING
         OUT OF OR IN CONNECTION WITH YOUR USE OF THE SERVICES OR THESE TERMS, EVEN
         IF WE HAVE BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
       </p>
       <p>
         OUR TOTAL LIABILITY TO YOU FOR ANY CLAIM ARISING OUT OF THESE TERMS OR THE
         SERVICES SHALL NOT EXCEED THE GREATER OF: (A) THE AMOUNT PAID BY YOU TO
-        INCOMEPILOT IN THE TWELVE MONTHS IMMEDIATELY PRECEDING THE CLAIM; OR (B)
+        VALKODA IN THE TWELVE MONTHS IMMEDIATELY PRECEDING THE CLAIM; OR (B)
         AUD $50.
       </p>
       <p>
@@ -274,9 +274,9 @@ export default function TermsPage() {
         For questions about these Terms:
       </p>
       <ul>
-        <li>Email: <a href="mailto:legal@incomepilot.app">legal@incomepilot.app</a></li>
-        <li>General support: <a href="mailto:support@incomepilot.app">support@incomepilot.app</a></li>
-        <li>Website: <a href="https://incomepilot.app">incomepilot.app</a></li>
+        <li>Email: <a href="mailto:legal@valkoda.app">legal@valkoda.app</a></li>
+        <li>General support: <a href="mailto:support@valkoda.app">support@valkoda.app</a></li>
+        <li>Website: <a href="https://valkoda.app">valkoda.app</a></li>
       </ul>
 
     </LegalLayout>

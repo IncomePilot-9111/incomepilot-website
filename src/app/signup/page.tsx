@@ -4,8 +4,8 @@ import AuthPageShell from '@/components/AuthPageShell'
 import SignUpForm from './SignUpForm'
 
 export const metadata: Metadata = {
-  title: 'Sign Up — IncomePilot',
-  description: 'Create your IncomePilot account.',
+  title: 'Sign Up',
+  description: 'Create your PolarisPilot account.',
   robots: { index: false, follow: false },
 }
 
@@ -13,7 +13,7 @@ export default function SignUpPage() {
   return (
     <AuthPageShell
       title="Create your account"
-      subtitle="Start using IncomePilot with email and password"
+      subtitle="Start using PolarisPilot with email and password"
       finePrint={
         <>
           By creating an account you agree to our{' '}
@@ -30,7 +30,7 @@ export default function SignUpPage() {
           >
             Privacy Policy
           </Link>
-          . Your data stays on your device by default. Premium unlocks secure cloud backup.
+          . Your data stays on your device by default. Secure cloud continuity is available when enabled.
         </>
       }
     >

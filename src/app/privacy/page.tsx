@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import LegalLayout from '@/components/LegalLayout'
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy — IncomePilot',
-  description: 'How IncomePilot collects, uses, and protects your information.',
+  title: 'Privacy Policy',
+  description: 'How Valkoda collects, uses, and protects your information.',
 }
 
 export default function PrivacyPage() {
@@ -16,27 +16,27 @@ export default function PrivacyPage() {
 
       <h2>1. About this Policy</h2>
       <p>
-        IncomePilot (&quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) operates the IncomePilot mobile
-        application and website (together, the &quot;Services&quot;). This Privacy Policy
-        explains what information we collect, why we collect it, how we use it,
-        and your rights in relation to that information.
+        Valkoda (&quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) operates the Valkoda website and the
+        PolarisPilot mobile application (together, the &quot;Services&quot;). This Privacy
+        Policy explains what information we collect, why we collect it, how we use
+        it, and your rights in relation to that information.
       </p>
       <p>
-        By using IncomePilot you agree to the practices described in this policy.
+        By using the Services you agree to the practices described in this policy.
         If you do not agree, please do not use the Services.
       </p>
 
-      <h2>2. How IncomePilot Handles Your Data</h2>
+      <h2>2. How Valkoda Handles Your Data</h2>
       <p>
-        <strong>IncomePilot is local-first by design.</strong> The earnings, shift
+        <strong>PolarisPilot is local-first by design.</strong> The earnings, shift
         logs, expenses, and work data you enter are stored on your device by
         default. This data does not leave your device unless you use features that
         require it to do so.
       </p>
       <p>
         <strong>Premium cloud-backed features.</strong> When you use premium
-        cloud-backed features — such as cloud backup, cross-device restore, or
-        connected premium experiences — eligible data may be securely transmitted
+        cloud-backed features - such as cloud backup, cross-device restore, or
+        connected premium experiences - eligible data may be securely transmitted
         to and stored on our infrastructure to support those features. This is done
         to protect your progress and enable restore and continuity. It is part of
         the premium experience, not a silent background process.
@@ -78,8 +78,8 @@ export default function PrivacyPage() {
 
       <h3>3.4 Device Information</h3>
       <p>
-        We collect limited device information — such as device type and operating
-        system version — to help diagnose compatibility issues and improve the app
+        We collect limited device information - such as device type and operating
+        system version - to help diagnose compatibility issues and improve the app
         experience.
       </p>
 
@@ -152,22 +152,22 @@ export default function PrivacyPage() {
       </p>
       <ul>
         <li>
-          <strong>Infrastructure providers</strong> — cloud hosting, authentication,
+          <strong>Infrastructure providers</strong> - cloud hosting, authentication,
           and database services (including Supabase and Vercel) that process data on
           our behalf under data processing agreements.
         </li>
         <li>
-          <strong>Subscription billing</strong> — subscription management is handled
+          <strong>Subscription billing</strong> - subscription management is handled
           via the App Store (Apple), Google Play (Google), or RevenueCat. These
           providers process payment data under their own privacy policies. We do not
           receive or store full payment card details.
         </li>
         <li>
-          <strong>Analytics providers</strong> — anonymous usage data only; no
+          <strong>Analytics providers</strong> - anonymous usage data only; no
           personal identifiers or earnings data are shared.
         </li>
         <li>
-          <strong>Legal authorities</strong> — where required by law, court order, or
+          <strong>Legal authorities</strong> - where required by law, court order, or
           to protect our rights or the safety of others.
         </li>
       </ul>
@@ -192,13 +192,13 @@ export default function PrivacyPage() {
       <p>
         <strong>Web requests</strong>: To exercise any of the above rights, contact
         us at{' '}
-        <a href="mailto:privacy@incomepilot.app">privacy@incomepilot.app</a>.
+        <a href="mailto:privacy@valkoda.app">privacy@valkoda.app</a>.
         We will respond within 30 days.
       </p>
 
       <h2>9. Children&apos;s Privacy</h2>
       <p>
-        IncomePilot is not directed to children under the age of 13. We do not
+        PolarisPilot is not directed to children under the age of 13. We do not
         knowingly collect personal information from children. If you believe a child
         has provided us with personal information, please contact us and we will
         promptly delete it.
@@ -219,9 +219,9 @@ export default function PrivacyPage() {
         information:
       </p>
       <ul>
-        <li>Privacy enquiries: <a href="mailto:privacy@incomepilot.app">privacy@incomepilot.app</a></li>
-        <li>General: <a href="mailto:support@incomepilot.app">support@incomepilot.app</a></li>
-        <li>Website: <a href="https://incomepilot.app">incomepilot.app</a></li>
+        <li>Privacy enquiries: <a href="mailto:privacy@valkoda.app">privacy@valkoda.app</a></li>
+        <li>General: <a href="mailto:support@valkoda.app">support@valkoda.app</a></li>
+        <li>Website: <a href="https://valkoda.app">valkoda.app</a></li>
       </ul>
 
     </LegalLayout>

@@ -11,7 +11,7 @@ type AuthStatusPageProps = {
 const statusContent = {
   confirmed: {
     title: 'Email confirmed',
-    detail: 'Your email has been confirmed successfully. You can continue into IncomePilot.',
+    detail: 'Your email has been confirmed successfully. You can continue into PolarisPilot.',
     actionHref: '/dashboard',
     actionLabel: 'Go to dashboard',
   },
@@ -38,8 +38,8 @@ const statusContent = {
 } as const
 
 export const metadata: Metadata = {
-  title: 'Auth Status — IncomePilot',
-  description: 'IncomePilot authentication status.',
+  title: 'Auth Status',
+  description: 'Valkoda authentication status.',
   robots: { index: false, follow: false },
 }
 
@@ -54,7 +54,7 @@ export default function AuthStatusPage({ searchParams }: AuthStatusPageProps) {
   const content = statusContent[type]
 
   return (
-    <AuthPageShell title={content.title} subtitle="IncomePilot account access">
+    <AuthPageShell title={content.title} subtitle="PolarisPilot account access">
       <div
         className="glass-card border-glow p-6 sm:p-8"
         style={{ borderRadius: '24px' }}
