@@ -19,13 +19,13 @@
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     scroll-behavior: smooth;
-    font-size: 16px;
+    font-size: 17px;
   }
 
   body {
-    background-color: #070F15;
-    color: #E8F5F2;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    background-color: #0C1C28;
+    color: #F5F7FB;
+    font-family: var(--font-body), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
       'Helvetica Neue', Arial, sans-serif;
     min-height: 100dvh;
     line-height: 1.6;
@@ -44,7 +44,7 @@
   /* Selection colour */
   ::selection {
     background-color: rgba(61, 214, 176, 0.2);
-    color: #E8F5F2;
+    color: #F5F7FB;
   }
 }
 
@@ -52,26 +52,54 @@
 @layer utilities {
   /* Gradient text */
   .text-gradient-primary {
-    background: linear-gradient(120deg, #3DD6B0 0%, #5EE4C0 50%, #3ECCC8 100%);
+    background: linear-gradient(120deg, #3DD6B0 0%, #5EE4C0 50%, #29B6F6 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
 
   .text-gradient-hero {
-    background: linear-gradient(125deg, #E8F5F2 0%, #C8EDE5 45%, #3DD6B0 100%);
+    background: linear-gradient(125deg, #F5F7FB 0%, #C8EDE5 45%, #3DD6B0 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
 
-  /* Glassmorphism card */
-  .glass-card {
-    background: rgba(13, 30, 42, 0.75);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+  /* Brand wordmark: uses Rajdhani via CSS variable */
+  .brand-wordmark {
+    font-family: var(--font-brand), 'Rajdhani', 'Avenir Next', 'Montserrat', 'Futura', Arial, sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    line-height: 0.94;
+  }
+
+  /* Glass surface: primary card style */
+  .glass-surface {
+    background: rgba(255, 255, 255, 0.028);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border: 1px solid rgba(255, 255, 255, 0.07);
-    border-radius: 20px;
+    border-radius: 16px;
+  }
+
+  .glass-surface-hover {
+    transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+  }
+
+  .glass-surface-hover:hover {
+    border-color: rgba(61, 214, 176, 0.22);
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.35), 0 0 24px rgba(61, 214, 176, 0.08);
+    transform: translateY(-2px);
+  }
+
+  /* Legacy alias */
+  .glass-card {
+    background: rgba(255, 255, 255, 0.028);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 16px;
   }
 
   .glass-card-hover {
@@ -116,13 +144,13 @@
 
   /* Nav link */
   .nav-link {
-    @apply text-sm font-medium text-[#6E9BAA] hover:text-[#E8F5F2] transition-colors duration-200;
+    @apply text-sm font-medium text-[#6E9BAA] hover:text-[#F5F7FB] transition-colors duration-200;
   }
 
   /* Primary button */
   .btn-primary {
     @apply inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm
-           bg-[#3DD6B0] text-[#070F15]
+           bg-[#3DD6B0] text-[#0C1C28]
            hover:bg-[#5EE4C0]
            active:scale-[0.97]
            transition-all duration-200
@@ -132,7 +160,7 @@
   /* Ghost button */
   .btn-ghost {
     @apply inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm
-           border border-[rgba(255,255,255,0.11)] text-[#E8F5F2]
+           border border-[rgba(255,255,255,0.11)] text-[#F5F7FB]
            hover:border-[rgba(61,214,176,0.35)] hover:text-[#3DD6B0]
            active:scale-[0.97]
            transition-all duration-200;
@@ -152,14 +180,14 @@
            border border-[rgba(61,214,176,0.18)];
   }
 
-  /* Section heading */
+  /* Section heading eyebrow */
   .section-eyebrow {
     @apply text-xs font-semibold tracking-widest uppercase text-[#3DD6B0] mb-3;
   }
 
   /* Legal prose */
   .legal-prose h2 {
-    @apply text-lg font-semibold text-[#E8F5F2] mt-10 mb-3;
+    @apply text-lg font-semibold text-[#F5F7FB] mt-10 mb-3;
   }
 
   .legal-prose h3 {
@@ -213,7 +241,26 @@
   height: 28px;
 }
 
-/* ─── Shimmer effect for coming soon placeholders ────────── */
+/* ─── Keyframe animations ────────────────────────────────── */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.8s ease-out both;
+}
+
+.animate-fade-up {
+  animation: fade-up 0.75s ease-out both;
+}
+
+/* ─── Shimmer effect for alpha roadmap placeholders ──────── */
 @keyframes shimmer-move {
   0%   { background-position: -400px 0; }
   100% { background-position: 400px 0; }
@@ -222,16 +269,16 @@
 .shimmer-placeholder {
   background: linear-gradient(
     90deg,
-    rgba(255, 255, 255, 0.04) 0px,
-    rgba(255, 255, 255, 0.07) 80px,
-    rgba(255, 255, 255, 0.04) 160px
+    rgba(255, 255, 255, 0.028) 0px,
+    rgba(255, 255, 255, 0.06) 80px,
+    rgba(255, 255, 255, 0.028) 160px
   );
   background-size: 400px 100%;
   animation: shimmer-move 2s linear infinite;
 }
 
 /* ─── Scroll Reveal Animations ───────────────────────────── */
-/* Base: invisible, slightly offset — JS adds .revealed class via IntersectionObserver */
+/* Base: invisible, slightly offset. JS adds .revealed class via IntersectionObserver */
 .reveal {
   opacity: 0;
   transform: translateY(28px);
@@ -288,31 +335,20 @@
 }
 
 /* ─── Global radar sweep beam ───────────────────────────── */
-/**
- * Slow rotating "ping" wedge — classic radar scope sweep.
- * The conic-gradient origin (50% 44%) matches the radar ring centre.
- * transform-origin must match so the wedge orbits the correct point.
- */
 @keyframes radar-sweep {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
 
 .radar-sweep-beam {
-  /*
-   * Conic wedge — the sweep "ping".
-   * Opacity reduced; mask-image fades the outer tip to transparent
-   * so the ray appears to dissolve rather than clip at the viewport edge.
-   */
   background: conic-gradient(
     from 0deg at 50% 44%,
     transparent            0deg,
-    rgba(61,214,176,0.038)  8deg,
-    rgba(61,214,176,0.018) 22deg,
+    rgba(61,214,176,0.072)  8deg,
+    rgba(61,214,176,0.036) 22deg,
     transparent            40deg,
     transparent           360deg
   );
-  /* Radial fade mask: full opacity at centre → transparent at ~70% radius */
   mask-image: radial-gradient(
     ellipse 72% 72% at 50% 44%,
     black 0%,

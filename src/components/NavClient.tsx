@@ -8,9 +8,10 @@ import { normalizeAuthMessage } from '@/lib/auth-helpers'
 import Logo from './Logo'
 
 const navLinks = [
-  { label: 'Privacy', href: '/privacy' },
-  { label: 'Terms', href: '/terms' },
-  { label: 'Support', href: '/support' },
+  { label: 'Home', href: '/' },
+  { label: 'PolarisPilot', href: '/#polarispilot' },
+  { label: 'About', href: '/#about' },
+  { label: 'Contact', href: '/support' },
 ]
 
 export default function NavClient({ userEmail }: { userEmail: string | null }) {
@@ -44,7 +45,7 @@ export default function NavClient({ userEmail }: { userEmail: string | null }) {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-[rgba(255,255,255,0.06)] bg-[rgba(7,15,21,0.82)] backdrop-blur-xl backdrop-saturate-150">
+    <header className="sticky top-0 z-50 w-full border-b border-[rgba(255,255,255,0.05)] bg-[rgba(2,6,8,0.94)] backdrop-blur-xl backdrop-saturate-150">
       <div className="section-container">
         <div className="flex h-14 items-center justify-between gap-4">
           <Logo size="sm" />
@@ -187,7 +188,7 @@ export default function NavClient({ userEmail }: { userEmail: string | null }) {
       </div>
 
       {mobileOpen && (
-        <div className="sm:hidden border-t border-[rgba(255,255,255,0.06)] bg-[rgba(7,15,21,0.95)] px-5 pb-4 pt-3 space-y-1">
+        <div className="sm:hidden border-t border-[rgba(255,255,255,0.05)] bg-[rgba(2,6,8,0.97)] px-5 pb-4 pt-3 space-y-1">
           {navLinks.map((link) => (
             <Link
               key={link.href}

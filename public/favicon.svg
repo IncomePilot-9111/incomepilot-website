@@ -1,25 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <!-- Background circle -->
-  <circle cx="32" cy="32" r="30" fill="#0A1820"/>
+  <defs>
+    <linearGradient id="v" x1="18" y1="14" x2="46" y2="50" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#E8F5F2"/>
+      <stop offset="0.52" stop-color="#8AE5D0"/>
+      <stop offset="1" stop-color="#3DD6B0"/>
+    </linearGradient>
+  </defs>
 
-  <!-- Outer ring -->
-  <circle cx="32" cy="32" r="27" stroke="rgba(61,214,176,0.35)" stroke-width="1.4"/>
+  <rect x="2" y="2" width="60" height="60" rx="18" fill="#071310"/>
+  <rect x="2.75" y="2.75" width="58.5" height="58.5" rx="17.25" stroke="rgba(61,214,176,0.18)" stroke-width="1.5"/>
 
-  <!-- Inner ring -->
-  <circle cx="32" cy="32" r="17" stroke="rgba(61,214,176,0.18)" stroke-width="1"/>
-
-  <!-- North needle (teal) -->
-  <path d="M32 32 L29 16 L32 20.5 L35 16 Z" fill="#3DD6B0"/>
-
-  <!-- South needle (muted) -->
-  <path d="M32 32 L30 48 L32 43.5 L34 48 Z" fill="rgba(61,214,176,0.28)"/>
-
-  <!-- Centre dot -->
-  <circle cx="32" cy="32" r="3" fill="#3DD6B0"/>
-
-  <!-- Cardinal ticks -->
-  <line x1="32" y1="4" x2="32" y2="8" stroke="rgba(61,214,176,0.50)" stroke-width="2" stroke-linecap="round"/>
-  <line x1="32" y1="56" x2="32" y2="60" stroke="rgba(61,214,176,0.22)" stroke-width="1.4" stroke-linecap="round"/>
-  <line x1="4" y1="32" x2="8" y2="32" stroke="rgba(61,214,176,0.22)" stroke-width="1.4" stroke-linecap="round"/>
-  <line x1="56" y1="32" x2="60" y2="32" stroke="rgba(61,214,176,0.22)" stroke-width="1.4" stroke-linecap="round"/>
+  <path
+    d="M18 16L30.5 47.5H33L46 16"
+    stroke="url(#v)"
+    stroke-width="7"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M28.8 16L32 24L35.2 16"
+    stroke="rgba(255,255,255,0.28)"
+    stroke-width="2.2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
 </svg>

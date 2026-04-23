@@ -6,19 +6,23 @@ const year = new Date().getFullYear()
 const footerLinks = [
   { label: 'Privacy Policy', href: '/privacy' },
   { label: 'Terms of Use',   href: '/terms'   },
-  { label: 'Support',        href: '/support' },
+  { label: 'Contact',        href: '/support' },
 ]
 
 export default function Footer() {
   return (
-    <footer className="border-t border-[rgba(255,255,255,0.06)] bg-[rgba(7,15,21,0.6)]">
+    <footer className="border-t border-[rgba(255,255,255,0.06)] bg-[rgba(7,14,19,0.7)] backdrop-blur-sm">
       <div className="section-container py-10">
         <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6">
+
           {/* Brand */}
           <div className="flex flex-col items-center sm:items-start gap-2">
             <Logo size="sm" />
-            <p className="text-xs text-[#3E6474] mt-1 text-center sm:text-left">
-              Built for the way independent workers earn.
+            <p className="text-xs text-[#4A7A8A] mt-1 text-center sm:text-left tracking-wider uppercase font-semibold">
+              Design. Build. Evolve.
+            </p>
+            <p className="text-xs text-[#3E6474] text-center sm:text-left">
+              PolarisPilot: Pioneer Alpha
             </p>
           </div>
 
@@ -39,10 +43,10 @@ export default function Footer() {
         {/* Bottom row */}
         <div className="mt-8 pt-6 border-t border-[rgba(255,255,255,0.05)] flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-[#2E5060]">
-            &copy; {year} IncomePilot. All rights reserved.
+            &copy; {year} Valkoda. All rights reserved.
           </p>
           <p className="text-xs text-[#2E5060]">
-            incomepilot.app
+            valkoda.app
           </p>
         </div>
       </div>

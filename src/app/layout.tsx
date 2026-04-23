@@ -1,52 +1,74 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
 import { Analytics } from '@vercel/analytics/next'
+import { Rajdhani, Inter } from 'next/font/google'
 import './globals.css'
 import GlobalBackground from '@/components/GlobalBackground'
 import ScrollCompass from '@/components/ScrollCompass'
+import SectionAnimations from '@/components/SectionAnimations'
 
-/* ─── Metadata ──────────────────────────────────────────────────────────────── */
+/* ── Fonts ────────────────────────────────────────────────────────────────── */
+
+const rajdhani = Rajdhani({
+  weight: ['600', '700'],
+  subsets: ['latin'],
+  variable: '--font-brand',
+  display: 'swap',
+})
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-body',
+  display: 'swap',
+})
+
+/* ── Metadata ─────────────────────────────────────────────────────────────── */
 
 export const metadata: Metadata = {
   title: {
-    default: 'IncomePilot — Earn More. Spend Less. Know More.',
-    template: '%s | IncomePilot',
+    default: 'Valkoda: Design. Build. Evolve.',
+    template: '%s | Valkoda',
   },
   description:
-    'IncomePilot helps shift workers, gig workers, and freelancers track every dollar, plan smart income goals, and surface insights that actually matter.',
+    'Valkoda builds intelligent systems for modern earners. PolarisPilot is our first Pioneer Alpha product.',
   keywords: [
-    'income tracker',
-    'shift work app',
-    'gig economy app',
-    'freelance tracker',
-    'earnings goals',
-    'financial planning',
-    'IncomePilot',
+    'Valkoda',
+    'PolarisPilot',
+    'earnings intelligence',
+    'modern earners',
+    'Pioneer Alpha',
+    'early access',
+    'gig economy',
+    'independent workers',
   ],
-  authors: [{ name: 'IncomePilot' }],
-  creator: 'IncomePilot',
-  metadataBase: new URL('https://incomepilot.app'),
+  authors: [{ name: 'Valkoda' }],
+  creator: 'Valkoda',
+  metadataBase: new URL('https://valkoda.app'),
+  alternates: {
+    canonical: '/',
+  },
   openGraph: {
     type: 'website',
-    siteName: 'IncomePilot',
-    title: 'IncomePilot — Earn More. Spend Less. Know More.',
+    siteName: 'Valkoda',
+    title: 'Valkoda: Design. Build. Evolve.',
     description:
-      'The income tracking and goal planning app for shifts, gigs, and freelance — with smart insights built in.',
-    url: 'https://incomepilot.app',
+      'Valkoda builds intelligent systems for modern earners. PolarisPilot is our first Pioneer Alpha product.',
+    url: 'https://valkoda.app',
     images: [
       {
-        url: '/og-image.png',
-        width: 1200,
-        height: 630,
-        alt: 'IncomePilot',
+        url: '/BANNER.png',
+        width: 1920,
+        height: 1080,
+        alt: 'Valkoda and PolarisPilot banner',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'IncomePilot',
-    description: 'Track every dollar. Plan every goal.',
-    images: ['/og-image.png'],
+    title: 'Valkoda: Design. Build. Evolve.',
+    description:
+      'Valkoda builds intelligent systems for modern earners. PolarisPilot is our first Pioneer Alpha product.',
+    images: ['/BANNER.png'],
   },
   robots: {
     index: true,
@@ -57,35 +79,33 @@ export const metadata: Metadata = {
     },
   },
   icons: {
-    icon: '/favicon.svg',
-    apple: '/apple-touch-icon.png',
+    icon: [{ url: '/logo.svg', type: 'image/svg+xml' }],
+    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+    shortcut: ['/logo.svg'],
   },
 }
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#070F15',
+  themeColor: '#0C1C28',
 }
 
-/* ─── Layout ────────────────────────────────────────────────────────────────── */
+/* ── Layout ───────────────────────────────────────────────────────────────── */
 
-export default function RootLayout({
-  children,
-}: {
-  children: ReactNode
-}) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className="dark">
-      <body className="bg-[#070F15] text-[#E8F5F2] antialiased">
-        {/* Fixed radar/compass texture — behind all pages */}
+    <html lang="en" className={`dark ${rajdhani.variable} ${inter.variable}`}>
+      <body className="bg-[#0C1C28] text-[#E8F5F2] antialiased">
+        {/* Fixed radar/compass texture, behind all pages */}
         <GlobalBackground />
-        {/* Scroll-linked compass — on every page */}
+        {/* Scroll-linked compass, on every page */}
         <ScrollCompass />
-        {/* Page content — above the fixed background layers */}
+        {/* Page content, above the fixed background layers */}
         <div className="relative z-[2]">
           {children}
         </div>
+        <SectionAnimations />
         <Analytics />
       </body>
     </html>

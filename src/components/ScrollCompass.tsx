@@ -22,10 +22,10 @@ const WAYPOINTS: [number, number][] = [
   [0.12,  30],  // Core Philosophy     → NNE
   [0.24,  90],  // Architecture        → East
   [0.38, 120],  // Modules             → ESE
-  [0.50, 160],  // CompassInsights     → SSE
+  [0.50, 160],  // Polaris intelligence → SSE
   [0.63, 180],  // Smart Features      → South
   [0.74, 210],  // Security & Privacy  → SSW
-  [0.85, 240],  // Why IncomePilot     → SW
+  [0.85, 240],  // Why PolarisPilot    → SW
   [1.00, 270],  // Team / CTA / Footer → West
 ]
 
