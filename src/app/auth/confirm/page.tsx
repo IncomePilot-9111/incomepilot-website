@@ -16,8 +16,8 @@
  *
  * This page must be set as the "Site URL" / redirect base in your
  * Supabase project settings, e.g.:
- *   Site URL: https://incomepilot.app
- *   Redirect URL pattern: https://incomepilot.app/auth/**
+ *   Site URL: https://valkoda.app
+ *   Redirect URL pattern: https://valkoda.app/auth/**
  */
 
 import { Suspense } from 'react'
@@ -26,7 +26,7 @@ import AuthConfirmContent from './AuthConfirmContent'
 import Logo from '@/components/Logo'
 
 export const metadata: Metadata = {
-  title: 'Verifying your email',
+  title: 'Verifying your PolarisPilot access',
   robots: { index: false, follow: false },
 }
 
@@ -58,7 +58,7 @@ export default function AuthConfirmPage() {
       {/* Minimal footer */}
       <footer className="px-5 py-4 border-t border-[rgba(255,255,255,0.05)] text-center">
         <p className="text-xs text-[#2E5060]">
-          &copy; {new Date().getFullYear()} IncomePilot &nbsp;·&nbsp;
+          &copy; {new Date().getFullYear()} Valkoda &nbsp;·&nbsp;
           <a href="/privacy" className="hover:text-[#3DD6B0] transition-colors">Privacy</a>
         </p>
       </footer>

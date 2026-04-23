@@ -20,7 +20,7 @@ export default async function DashboardPage() {
           <div className="mx-auto max-w-3xl space-y-3">
             <h1 className="text-3xl font-bold">Signed in successfully</h1>
             <p className="text-base text-[#8CB4C0]">{user.email ?? 'Email unavailable'}</p>
-            <p className="text-base text-[#8CB4C0]">Dashboard placeholder</p>
+            <p className="text-base text-[#8CB4C0]">PolarisPilot dashboard placeholder</p>
           </div>
         </main>
       </div>

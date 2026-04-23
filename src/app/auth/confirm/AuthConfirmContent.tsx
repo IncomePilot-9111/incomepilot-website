@@ -39,7 +39,7 @@ export default function AuthConfirmContent() {
       setState({
         status: 'error',
         heading: 'Service unavailable',
-        detail: 'IncomePilot is having trouble connecting right now. Please try again in a moment.',
+        detail: 'PolarisPilot is having trouble connecting right now. Please try again in a moment.',
         canRetry: true,
       })
       return
@@ -66,7 +66,7 @@ export default function AuthConfirmContent() {
     const deepLink = buildAuthVerifiedDeepLink(params.redirectTo)
     setState({
       status: 'loading',
-      label: 'Verified successfully. Opening IncomePilot…',
+      label: 'Verified successfully. Opening PolarisPilot…',
     })
 
     await new Promise((resolve) => setTimeout(resolve, 350))
@@ -178,7 +178,7 @@ function SuccessView({
           Your email has been confirmed successfully.
         </p>
         <p className="mt-1 text-sm text-[#6E9BAA]">
-          You can safely close this page and begin your IncomePilot journey in the app.
+          You can safely close this page and continue into PolarisPilot in the app.
         </p>
       </div>
 
@@ -203,7 +203,7 @@ function SuccessView({
               />
             </svg>
             <p className="text-xs text-[#6E9BAA]">
-              IncomePilot should be open on your device. If not, return to the app and sign in there.
+              PolarisPilot should be open on your device. If not, return to the app and sign in there.
             </p>
           </div>
         ) : (
@@ -232,14 +232,14 @@ function SuccessView({
                 />
               </svg>
               <p className="text-xs text-[#6E9BAA]">
-                If IncomePilot does not open automatically, return to the app and sign in there.
+                If PolarisPilot does not open automatically, return to the app and sign in there.
               </p>
             </div>
             <a
               href={deepLink}
               className="inline-flex min-h-[44px] items-center justify-center rounded-full border border-[rgba(61,214,176,0.28)] bg-[rgba(61,214,176,0.08)] px-4 text-sm font-semibold text-[#CFFCF2] transition-colors hover:bg-[rgba(61,214,176,0.14)]"
             >
-              Open IncomePilot
+              Open PolarisPilot
             </a>
           </div>
         )}
@@ -311,7 +311,7 @@ function ErrorView({
             <div className="space-y-1 text-xs text-[#6E9BAA]">
               <p className="font-semibold text-[#8CB4C0]">What to do next</p>
               <p>
-                Open IncomePilot on your device and choose <em>Resend verification email</em> from
+                Open PolarisPilot on your device and choose <em>Resend verification email</em> from
                 the sign-in screen. Then tap the new link in your inbox.
               </p>
             </div>

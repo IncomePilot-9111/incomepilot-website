@@ -60,7 +60,7 @@ export default function AuthPageShell({
 
       <footer className="relative z-10 text-center py-6">
         <p className="text-xs text-[#2E5060]">
-          &copy; {new Date().getFullYear()} IncomePilot. All rights reserved.
+          &copy; {new Date().getFullYear()} Valkoda. All rights reserved.
         </p>
       </footer>
     </div>

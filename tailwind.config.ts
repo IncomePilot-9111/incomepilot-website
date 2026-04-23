@@ -9,7 +9,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // IncomePilot core palette — mirrored from Flutter app dark theme
+        // Valkoda core palette — inherited from the existing dark product theme
         ip: {
           // Backgrounds
           'bg-deep':    '#070F15',

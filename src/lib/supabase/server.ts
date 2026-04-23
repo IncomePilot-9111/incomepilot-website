@@ -39,7 +39,7 @@ export async function createClient() {
     !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
   ) {
     throw new Error(
-      '[IncomePilot] Supabase env vars not configured. ' +
+      '[Valkoda] Supabase env vars not configured. ' +
         'Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ' +
         'in your .env.local or Vercel project settings.',
     )
