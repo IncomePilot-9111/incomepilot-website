@@ -1,12 +1,22 @@
 -- ============================================================
 -- Migration 001: Create public.profiles table
 -- Run this in: Supabase Dashboard -> SQL Editor
+--
+-- Schema matches the live Supabase table:
+--   id           uuid primary key → auth.users(id)
+--   email        text unique not null
+--   display_name text
+--
+-- If the table already exists (created outside this migration),
+-- skip the CREATE TABLE block and run 002_fix_profiles_trigger.sql
+-- to repair the trigger function instead.
 -- ============================================================
 
 -- 1. Profiles table
 CREATE TABLE IF NOT EXISTS public.profiles (
   id           UUID        PRIMARY KEY REFERENCES auth.users (id) ON DELETE CASCADE,
-  display_name TEXT        NOT NULL DEFAULT '',
+  email        TEXT        UNIQUE NOT NULL,
+  display_name TEXT,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -26,6 +36,7 @@ CREATE POLICY "profiles_update_own"
 
 -- 4. Trigger function: auto-insert a profile row when a new auth user is created.
 --    Reads display_name from the user's raw_user_meta_data (set during signUp).
+--    Writes email from auth.users.email (required: email column is NOT NULL).
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -33,10 +44,11 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  INSERT INTO public.profiles (id, display_name)
+  INSERT INTO public.profiles (id, email, display_name)
   VALUES (
     NEW.id,
-    COALESCE(NEW.raw_user_meta_data ->> 'display_name', '')
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data ->> 'display_name', NULL)
   )
   ON CONFLICT (id) DO NOTHING;
   RETURN NEW;

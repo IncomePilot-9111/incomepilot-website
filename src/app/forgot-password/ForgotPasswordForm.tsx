@@ -24,19 +24,27 @@ export default function ForgotPasswordForm() {
 
     setLoading(true)
 
-    const supabase = createClient()
-    const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
-      redirectTo: getSiteUrl('/reset-password'),
-    })
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+        redirectTo: getSiteUrl('/auth/callback?next=/reset-password'),
+      })
 
-    setLoading(false)
+      if (error) {
+        setErrorMessage(normalizeAuthMessage(error.message))
+        return
+      }
 
-    if (error) {
-      setErrorMessage(normalizeAuthMessage(error.message))
-      return
+      setSuccessMessage('Password reset email sent. Check your inbox for the secure link.')
+    } catch (err) {
+      setErrorMessage(
+        err instanceof Error
+          ? normalizeAuthMessage(err.message)
+          : 'Unable to send reset email right now. Please try again.',
+      )
+    } finally {
+      setLoading(false)
     }
-
-    setSuccessMessage('Password reset email sent. Check your inbox for the secure link.')
   }
 
   return (
