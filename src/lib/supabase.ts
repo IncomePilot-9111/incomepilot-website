@@ -9,19 +9,19 @@ type BrowserClientOptions = {
  *
  * Env vars required (set in .env.local or Vercel dashboard):
  *   NEXT_PUBLIC_SUPABASE_URL
- *   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+ *   NEXT_PUBLIC_SUPABASE_ANON_KEY
  *
  * These are safe to expose to the browser and protected by Row-Level Security
  * policies on your Supabase project.
  */
 export function createBrowserClient(options: BrowserClientOptions = {}) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!url || !key) {
     throw new Error(
       '[Valkoda] Supabase env vars not set. ' +
-        'Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY to .env.local.',
+        'Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local.',
     )
   }
 

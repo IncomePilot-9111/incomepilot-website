@@ -24,20 +24,29 @@ export default function SignInForm() {
 
     setLoading(true)
 
-    const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({
-      email: trimmedEmail,
-      password,
-    })
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password,
+      })
 
-    if (error) {
+      if (error) {
+        setErrorMessage(normalizeErrorMessage(error.message))
+        return
+      }
+
+      router.push('/dashboard')
+      router.refresh()
+    } catch (err) {
+      setErrorMessage(
+        err instanceof Error
+          ? normalizeErrorMessage(err.message)
+          : 'Unable to sign in right now. Please try again.',
+      )
+    } finally {
       setLoading(false)
-      setErrorMessage(normalizeErrorMessage(error.message))
-      return
     }
-
-    router.push('/dashboard')
-    router.refresh()
   }
 
   return (
