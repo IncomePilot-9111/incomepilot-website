@@ -99,8 +99,10 @@ export function mapRevenueCatSubscriber(
 /**
  * Fetch a subscriber from the RevenueCat REST API.
  *
- * The RevenueCat appUserID must equal the Supabase auth user UUID so that
- * the mobile app and the website share the same subscriber record.
+ * @param appUserId  The RevenueCat appUserID. On this platform that is
+ *                   profiles.master_account_uuid — NOT auth.users.id.
+ *                   The caller is responsible for resolving the correct UUID
+ *                   before calling this function.
  *
  * @throws Error with a descriptive message on network or API failure.
  */

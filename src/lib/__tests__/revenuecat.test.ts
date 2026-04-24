@@ -117,6 +117,21 @@ describe('mapRevenueCatSubscriber', () => {
     })
   })
 
+  describe('appUserId is master_account_uuid, not auth.users.id', () => {
+    // The mapper receives the subscriber object that RevenueCat returns for
+    // a given appUserId. The caller (route handler) is responsible for
+    // resolving profiles.master_account_uuid before calling fetchRevenueCatSubscriber.
+    // The mapper itself is identity-agnostic — this test documents that contract.
+    it('produces correct output regardless of which UUID was used to fetch', () => {
+      const masterUuid = 'a1b2c3d4-0000-0000-0000-000000000000'
+      const sub = makeSubscriber({ expires_date: FUTURE })
+      sub.original_app_user_id = masterUuid
+      const result = mapRevenueCatSubscriber(sub, 'pro', NOW)
+      expect(result.is_active).toBe(true)
+      expect(result.entitlement).toBe('pro')
+    })
+  })
+
   describe('grace period: entitlement expired but in grace', () => {
     it('still returns is_active=false (grace period is RevenueCat-side logic)', () => {
       // expires_date is in the past — our mapper uses expires_date, not grace

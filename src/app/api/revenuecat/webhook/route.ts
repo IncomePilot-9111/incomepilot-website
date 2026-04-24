@@ -1,13 +1,15 @@
 /**
  * POST /api/revenuecat/webhook
  *
- * Receives RevenueCat server-to-server webhook events (purchase, renewal,
- * cancellation, expiration, etc.) and keeps public.premium_entitlements in
- * sync without requiring the user to be online.
+ * Receives RevenueCat server-to-server events and keeps
+ * public.premium_entitlements in sync.
  *
- * Security: The Authorization header must match REVENUECAT_WEBHOOK_AUTH.
- * Set this shared secret in RevenueCat Dashboard → Integrations → Webhooks
- * → "Authorization header" and mirror it in Vercel env vars.
+ * Identity mapping:
+ *   event.app_user_id  =  profiles.master_account_uuid  (set by the mobile app)
+ *   profiles.id        =  auth.users.id                 (PK of premium_entitlements)
+ *
+ * The webhook performs a reverse lookup:
+ *   master_account_uuid  →  profiles.id  →  premium_entitlements.user_id
  *
  * RevenueCat webhook payload reference:
  *   https://www.revenuecat.com/docs/integrations/webhooks/event-types-and-fields
@@ -18,7 +20,6 @@ import { fetchRevenueCatSubscriber, mapRevenueCatSubscriber } from '@/lib/revenu
 
 export const dynamic = 'force-dynamic'
 
-// Minimal typing for the RevenueCat webhook payload
 interface RevenueCatWebhookBody {
   event?: {
     app_user_id?: string
@@ -38,11 +39,11 @@ export async function POST(request: NextRequest) {
 
   const authHeader = request.headers.get('Authorization')
   if (authHeader !== expectedAuth) {
-    console.warn('[webhook] Rejected request — Authorization mismatch')
+    console.warn('[webhook] Rejected — Authorization mismatch')
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // ── 2. Parse the event body ────────────────────────────────────────────
+  // ── 2. Parse the event ────────────────────────────────────────────────
   let body: RevenueCatWebhookBody
   try {
     body = (await request.json()) as RevenueCatWebhookBody
@@ -50,36 +51,57 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const appUserId  = body?.event?.app_user_id
+  // app_user_id from the mobile app == profiles.master_account_uuid
+  const masterUuid = body?.event?.app_user_id
   const eventType  = body?.event?.type ?? 'UNKNOWN'
 
-  if (!appUserId) {
+  if (!masterUuid) {
     return NextResponse.json({ error: 'Missing event.app_user_id' }, { status: 400 })
   }
 
-  console.log(`[webhook] Received ${eventType} for appUserId=${appUserId}`)
+  console.log(`[webhook] ${eventType} — master_account_uuid=${masterUuid}`)
 
-  // ── 3. Fetch the latest subscriber state from RevenueCat ──────────────
+  const service = createServiceClient()
+
+  // ── 3. Reverse-lookup: master_account_uuid → auth.users.id ─────────────
+  // The profiles table is indexed on master_account_uuid for this query.
+  const { data: profile, error: lookupError } = await service
+    .from('profiles')
+    .select('id')          // id = auth.users.id
+    .eq('master_account_uuid', masterUuid)
+    .single()
+
+  if (lookupError || !profile) {
+    // Could be a RevenueCat user who hasn't signed up on the website yet,
+    // or a test/anonymous RC user. Return 200 so RC does not retry endlessly.
+    console.warn(
+      `[webhook] No profile found for master_account_uuid=${masterUuid} — skipping upsert`,
+    )
+    return NextResponse.json({ ok: true, skipped: true })
+  }
+
+  const authUserId = profile.id   // auth.users.id
+
+  // ── 4. Fetch latest subscriber state from RevenueCat ──────────────────
   let subscriber
   try {
-    subscriber = await fetchRevenueCatSubscriber(appUserId)
+    subscriber = await fetchRevenueCatSubscriber(masterUuid)
   } catch (err) {
     console.error('[webhook] RevenueCat fetch failed:', err)
-    // Return 502 so RevenueCat retries the webhook
+    // Return 502 so RevenueCat retries
     return NextResponse.json({ error: 'RevenueCat fetch failed' }, { status: 502 })
   }
 
-  // ── 4. Map and upsert ─────────────────────────────────────────────────
+  // ── 5. Map and upsert ─────────────────────────────────────────────────
   const mapped = mapRevenueCatSubscriber(subscriber)
   const now    = new Date().toISOString()
 
-  const service = createServiceClient()
   const { error: upsertError } = await service
     .from('premium_entitlements')
     .upsert(
       {
-        user_id:                appUserId,
-        revenuecat_app_user_id: appUserId,
+        user_id:                authUserId,   // auth.users.id
+        revenuecat_app_user_id: masterUuid,   // profiles.master_account_uuid
         is_active:              mapped.is_active,
         entitlement:            mapped.entitlement,
         product_id:             mapped.product_id,
@@ -98,7 +120,8 @@ export async function POST(request: NextRequest) {
   }
 
   console.log(
-    `[webhook] Upserted ${appUserId}: is_active=${mapped.is_active}, entitlement=${mapped.entitlement}`,
+    `[webhook] Upserted authUserId=${authUserId} ` +
+    `(master=${masterUuid}): is_active=${mapped.is_active}, entitlement=${mapped.entitlement}`,
   )
 
   return NextResponse.json({ ok: true })
