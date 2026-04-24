@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import Nav from '@/components/Nav'
+import PremiumGate from '@/components/PremiumGate'
 import { createClient } from '@/lib/supabase/server'
 
 export const metadata: Metadata = {
@@ -19,8 +20,7 @@ export default async function DashboardPage() {
     if (!authUser) redirect('/signin')
     user = authUser
 
-    // Load the profile row - may not exist yet if the DB migration hasn't run,
-    // so we handle the error gracefully rather than crashing.
+    // Load the profile row — may not exist if the migration hasn't run yet
     const { data } = await supabase
       .from('profiles')
       .select('display_name')
@@ -73,6 +73,9 @@ export default async function DashboardPage() {
               </div>
             </div>
           </div>
+
+          {/* Premium gated sections — server-rendered, no flicker */}
+          <PremiumGate userId={user!.id} />
 
           {/* App CTA */}
           <div className="glass-surface rounded-2xl p-6">
