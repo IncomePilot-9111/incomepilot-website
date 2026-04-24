@@ -75,13 +75,12 @@ export async function GET() {
       .single()
 
     return NextResponse.json({
-      is_active:   cached?.is_active   ?? false,
-      entitlement: cached?.entitlement ?? 'pro',
-      product_id:  cached?.product_id  ?? null,
-      store:       cached?.store       ?? null,
-      expires_at:  cached?.expires_at  ?? null,
-      source:      'cache',
-      notice:      'App not yet linked. Open the PolarisPilot app to connect your account.',
+      ok: true,
+      isActive: cached?.is_active ?? false,
+      entitlement: cached?.entitlement ?? null,
+      productId: cached?.product_id ?? null,
+      store: cached?.store ?? null,
+      expiresAt: cached?.expires_at ?? null,
     })
   }
 
@@ -115,12 +114,12 @@ export async function GET() {
     }
 
     return NextResponse.json({
-      is_active:   mapped.is_active,
+      ok: true,
+      isActive: mapped.is_active,
       entitlement: mapped.entitlement,
-      product_id:  mapped.product_id,
-      store:       mapped.store,
-      expires_at:  mapped.expires_at,
-      source:      'revenuecat',
+      productId: mapped.product_id,
+      store: mapped.store,
+      expiresAt: mapped.expires_at,
     })
   } catch (rcError) {
     // ── 5. RevenueCat unreachable — fall back to DB cache ─────────────────
@@ -133,12 +132,12 @@ export async function GET() {
       .single()
 
     return NextResponse.json({
-      is_active:   cached?.is_active   ?? false,
-      entitlement: cached?.entitlement ?? 'pro',
-      product_id:  cached?.product_id  ?? null,
-      store:       cached?.store       ?? null,
-      expires_at:  cached?.expires_at  ?? null,
-      source:      'cache',
+      ok: true,
+      isActive: cached?.is_active ?? false,
+      entitlement: cached?.entitlement ?? null,
+      productId: cached?.product_id ?? null,
+      store: cached?.store ?? null,
+      expiresAt: cached?.expires_at ?? null,
     })
   }
 }

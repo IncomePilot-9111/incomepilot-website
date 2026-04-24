@@ -43,7 +43,7 @@ export interface RevenueCatGetSubscriberResponse {
  */
 export interface PremiumEntitlementValues {
   is_active: boolean
-  entitlement: string
+  entitlement: string | null
   product_id: string | null
   store: string | null
   expires_at: string | null
@@ -56,41 +56,68 @@ export interface PremiumEntitlementValues {
  * premium_entitlements row.
  *
  * Active rules:
- *   - entitlement key must exist in subscriber.entitlements
+ *   - active entitlement is detected dynamically from subscriber.entitlements
  *   - expires_date === null  → lifetime (always active)
  *   - expires_date > now()   → active subscription
  *   - otherwise              → expired / inactive
  *
  * @param subscriber  The `subscriber` object from the RevenueCat API response.
- * @param entitlementName  Entitlement identifier. Defaults to 'pro'.
  * @param now  Injectable timestamp for deterministic testing. Defaults to Date.now().
  */
 export function mapRevenueCatSubscriber(
   subscriber: RevenueCatSubscriber,
-  entitlementName = 'pro',
   now: number = Date.now(),
 ): PremiumEntitlementValues {
-  const ent = subscriber.entitlements[entitlementName]
+  const entitlementEntries = Object.entries(subscriber.entitlements)
 
-  if (!ent) {
+  const activeEntry = entitlementEntries.find(([, entitlement]) => (
+    entitlement.expires_date === null ||
+    new Date(entitlement.expires_date).getTime() > now
+  ))
+
+  const fallbackEntry = entitlementEntries.reduce<
+    [string, RevenueCatEntitlementInfo] | null
+  >((latest, entry) => {
+    const [, entitlement] = entry
+
+    if (!latest) {
+      return entry
+    }
+
+    const [, currentLatest] = latest
+    const latestTime =
+      currentLatest.expires_date === null
+        ? Number.POSITIVE_INFINITY
+        : new Date(currentLatest.expires_date).getTime()
+    const entryTime =
+      entitlement.expires_date === null
+        ? Number.POSITIVE_INFINITY
+        : new Date(entitlement.expires_date).getTime()
+
+    return entryTime > latestTime ? entry : latest
+  }, null)
+
+  const selectedEntry = activeEntry ?? fallbackEntry
+
+  if (!selectedEntry) {
     return {
       is_active: false,
-      entitlement: entitlementName,
+      entitlement: null,
       product_id: null,
       store: null,
       expires_at: null,
     }
   }
 
-  const isActive =
-    ent.expires_date === null || new Date(ent.expires_date).getTime() > now
+  const [entitlementName, entitlement] = selectedEntry
+  const isActive = activeEntry !== undefined
 
   return {
     is_active: isActive,
     entitlement: entitlementName,
-    product_id: ent.product_identifier ?? null,
-    store: ent.store ?? null,
-    expires_at: ent.expires_date ?? null,
+    product_id: entitlement.product_identifier ?? null,
+    store: entitlement.store ?? null,
+    expires_at: entitlement.expires_date ?? null,
   }
 }
 
