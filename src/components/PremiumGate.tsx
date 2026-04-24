@@ -129,7 +129,7 @@ function PremiumDashboard({
           <CalendarPreview events={data.upcomingEvents} />
         </div>
         <div className="lg:col-span-2">
-          <GoalsCard goal={data.goal} />
+          <GoalsCard goal={data.goal} totalXp={data.totalXp} xpLevel={data.xpLevel} />
         </div>
       </div>
 
@@ -305,19 +305,46 @@ function CalendarPreview({ events }: { events: CalendarEvent[] }) {
 
 // ─── Goals card ───────────────────────────────────────────────────────────────
 
-function GoalsCard({ goal }: { goal: import('@/lib/dashboard-data').GoalData | null }) {
+function GoalsCard({
+  goal,
+  totalXp,
+  xpLevel,
+}: {
+  goal:     import('@/lib/dashboard-data').GoalData | null
+  totalXp:  number
+  xpLevel:  number
+}) {
+  const xpBlock = (
+    <div
+      className="mt-auto rounded-xl p-3 flex items-center gap-3"
+      style={{ background: 'rgba(167,139,250,0.07)', border: '1px solid rgba(167,139,250,0.15)' }}
+    >
+      <div
+        className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-sm font-bold"
+        style={{ background: 'rgba(167,139,250,0.15)', color: '#A78BFA' }}
+      >
+        XP
+      </div>
+      <div>
+        <p className="text-sm font-bold text-[#C8EDE5]">{totalXp.toLocaleString('en-AU')}</p>
+        <p className="text-xs text-[#4A7A8A]">Total experience points</p>
+      </div>
+    </div>
+  )
+
   if (!goal) {
     return (
-      <div className="glass-surface rounded-2xl p-5 h-full flex flex-col">
-        <p className="section-eyebrow !mb-0 mb-4">Goals and XP</p>
-        <div className="flex-1 flex flex-col items-center justify-center gap-2 py-6 text-center">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="opacity-30">
+      <div className="glass-surface rounded-2xl p-5 h-full flex flex-col gap-4">
+        <p className="section-eyebrow !mb-0">Goals and XP</p>
+        <div className="flex-1 flex flex-col items-center justify-center gap-2 py-4 text-center">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="opacity-30">
             <circle cx="12" cy="12" r="9" stroke="#8CB4C0" strokeWidth="1.5" />
             <path d="M12 8v4l3 3" stroke="#8CB4C0" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
           <p className="text-sm text-[#4A7A8A]">No active goal</p>
           <p className="text-xs text-[#3E6474]">Set an income goal in the app to track progress here</p>
         </div>
+        {xpBlock}
       </div>
     )
   }
@@ -330,7 +357,7 @@ function GoalsCard({ goal }: { goal: import('@/lib/dashboard-data').GoalData | n
           className="text-xs font-bold px-2 py-0.5 rounded-full"
           style={{ background: 'rgba(167,139,250,0.12)', color: '#A78BFA', border: '1px solid rgba(167,139,250,0.25)' }}
         >
-          Lv {goal.level}
+          Lv {xpLevel}
         </span>
       </div>
 
@@ -362,22 +389,7 @@ function GoalsCard({ goal }: { goal: import('@/lib/dashboard-data').GoalData | n
         </div>
       </div>
 
-      {/* XP */}
-      <div
-        className="mt-auto rounded-xl p-3 flex items-center gap-3"
-        style={{ background: 'rgba(167,139,250,0.07)', border: '1px solid rgba(167,139,250,0.15)' }}
-      >
-        <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-sm font-bold"
-          style={{ background: 'rgba(167,139,250,0.15)', color: '#A78BFA' }}
-        >
-          XP
-        </div>
-        <div>
-          <p className="text-sm font-bold text-[#C8EDE5]">{goal.xp.toLocaleString('en-AU')}</p>
-          <p className="text-xs text-[#4A7A8A]">Total experience points</p>
-        </div>
-      </div>
+      {xpBlock}
     </div>
   )
 }
