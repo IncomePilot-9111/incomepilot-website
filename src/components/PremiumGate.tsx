@@ -41,7 +41,12 @@ function formatAUD(amount: number): string {
 
 function hexToRgbStr(hex: string): string {
   const h = hex.replace('#', '')
-  return `${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)}`
+  if (h.length !== 6) return '0,0,0'
+  const r = parseInt(h.slice(0, 2), 16)
+  const g = parseInt(h.slice(2, 4), 16)
+  const b = parseInt(h.slice(4, 6), 16)
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return '0,0,0'
+  return `${r},${g},${b}`
 }
 
 // ─── Gate ─────────────────────────────────────────────────────────────────────
@@ -85,8 +90,9 @@ function PremiumDashboard({
   entitlement: string | null
   data:        DashboardData
 }) {
-  const expiryLabel = expiresAt
-    ? new Date(expiresAt).toLocaleDateString('en-AU', { year: 'numeric', month: 'long', day: 'numeric' })
+  const expiryDate  = expiresAt ? new Date(expiresAt) : null
+  const expiryLabel = expiryDate && !isNaN(expiryDate.getTime())
+    ? expiryDate.toLocaleDateString('en-AU', { year: 'numeric', month: 'long', day: 'numeric' })
     : null
 
   return (
@@ -212,7 +218,7 @@ function SummaryCards({ data }: { data: DashboardData }) {
             <p className="text-xs font-semibold text-[#4A7A8A] leading-tight">{label}</p>
           </div>
           <div>
-            <p className="text-xl sm:text-2xl font-bold leading-none" style={{ color: accent }}>{value}</p>
+            <p className="text-lg md:text-xl font-bold leading-none break-all" style={{ color: accent }}>{value}</p>
             <p className="text-xs text-[#3E6474] mt-1">{sub}</p>
           </div>
         </div>
@@ -231,7 +237,9 @@ const EVENT_TYPE_CONFIG: Record<CalendarEvent['type'], { label: string; color: s
 }
 
 function formatEventDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return 'Date TBC'
+  return d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })
 }
 
 function CalendarPreview({ events }: { events: CalendarEvent[] }) {
@@ -432,7 +440,7 @@ function ExportCentre() {
       <div className="flex items-center justify-between mb-5">
         <div>
           <p className="section-eyebrow !mb-0">Export Centre</p>
-          <p className="text-xs text-[#4A7A8A] mt-1">Download your income data in multiple formats</p>
+          <p className="text-xs text-[#4A7A8A] mt-1">Premium report exports are available in a future update</p>
         </div>
         <span
           className="text-xs font-semibold px-3 py-1 rounded-full flex-shrink-0"
@@ -557,7 +565,7 @@ function LockedDashboard() {
             style={{ opacity: 0.45 }}
           >
             <p className="text-xs font-semibold text-[#4A7A8A] mb-2">{label}</p>
-            <p className="text-xl sm:text-2xl font-bold" style={{ color: accent }}>{value}</p>
+            <p className="text-lg md:text-xl font-bold" style={{ color: accent }}>{value}</p>
             <LockedOverlay />
           </div>
         ))}

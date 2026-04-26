@@ -22,7 +22,9 @@ function formatAUD(n: number): string {
 }
 
 function friendlyDate(dateStr: string): string {
-  const d    = new Date(dateStr)
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return ''
+
   const now  = new Date()
   const diff = Math.floor((now.getTime() - d.getTime()) / 86_400_000)
 

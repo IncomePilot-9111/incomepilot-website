@@ -190,12 +190,41 @@ function buildSignals(
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export function computeCompassScore(input: CompassInput): CompassData {
+  // Normalise inputs: guard against NaN/Infinity passed by future callers.
+  // (The current loadDashboardData() path never produces NaN, but callers
+  // outside the dashboard could pass raw DB values without validation.)
+  const safeNum = (v: number) => (Number.isFinite(v) ? v : 0)
+
+  const totalIncome    = safeNum(input.totalIncome)
+  const totalExpenses  = safeNum(input.totalExpenses)
+  const modulesCount   = safeNum(input.modulesCount)
+  const totalXp        = safeNum(input.totalXp)
+  const activeDaysLast7 = safeNum(input.activeDaysLast7)
+  // goalProgressPct is allowed to be null (neutral); normalise non-finite numbers.
+  const goalProgressPct: number | null =
+    input.goalProgressPct === null
+      ? null
+      : Number.isFinite(input.goalProgressPct)
+        ? input.goalProgressPct
+        : null
+
+  // Build a normalised copy of the input so buildSummary/buildSignals only
+  // ever see safe, finite values.
+  const safeInput: CompassInput = {
+    totalIncome,
+    totalExpenses,
+    modulesCount,
+    totalXp,
+    activeDaysLast7,
+    goalProgressPct,
+  }
+
   const pillars: CompassPillarScores = {
-    goalPace:    calcPaceScore(input.goalProgressPct),
-    consistency: calcConsistencyScore(input.activeDaysLast7),
-    expenses:    calcExpensesScore(input.totalIncome, input.totalExpenses),
-    modules:     calcModulesScore(input.modulesCount),
-    activity:    calcActivityScore(input.totalXp),
+    goalPace:    calcPaceScore(safeInput.goalProgressPct),
+    consistency: calcConsistencyScore(safeInput.activeDaysLast7),
+    expenses:    calcExpensesScore(safeInput.totalIncome, safeInput.totalExpenses),
+    modules:     calcModulesScore(safeInput.modulesCount),
+    activity:    calcActivityScore(safeInput.totalXp),
   }
 
   const rawScore =
@@ -205,15 +234,17 @@ export function computeCompassScore(input: CompassInput): CompassData {
     pillars.modules     * 0.15 +
     pillars.activity    * 0.15
 
-  const score = Math.round(Math.max(0, Math.min(100, rawScore)))
+  // The weighted sum of integer pillar scores can never produce NaN here,
+  // but Math.max/min/round provide a final hard clamp as a safety net.
+  const score = Math.round(Math.max(0, Math.min(100, rawScore || 0)))
 
-  const { positive, improvement } = buildSignals(input, pillars)
+  const { positive, improvement } = buildSignals(safeInput, pillars)
 
   return {
     score,
     levelLabel:         scoreToLevelLabel(score),
     levelColor:         scoreToLevelColor(score),
-    summary:            buildSummary(score, input),
+    summary:            buildSummary(score, safeInput),
     positiveSignals:    positive,
     improvementSignals: improvement,
     pillarScores:       pillars,
