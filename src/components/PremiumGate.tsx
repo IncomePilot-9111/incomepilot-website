@@ -138,7 +138,7 @@ function PremiumDashboard({
           <CalendarPreview events={data.upcomingEvents} />
         </div>
         <div className="lg:col-span-2">
-          <GoalsCard goal={data.goal} totalXp={data.totalXp} xpLevel={data.xpLevel} />
+          <GoalsCard goals={data.goals} totalXp={data.totalXp} xpLevel={data.xpLevel} />
         </div>
       </div>
 
@@ -315,12 +315,90 @@ function CalendarPreview({ events }: { events: CalendarEvent[] }) {
 
 // ─── Goals + XP card ─────────────────────────────────────────────────────────
 
+const MODULE_TYPE_LABELS: Record<string, string> = {
+  shift_worker: 'Shift Work',
+  rideshare:    'Rideshare',
+  delivery:     'Delivery',
+  freelance:    'Freelance',
+  rentals:      'Rentals',
+  salary:       'Salary',
+}
+
+function goalDateLabel(dateStr: string | null): string {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return ''
+  return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function GoalRow({ goal }: { goal: GoalData }) {
+  const accent     = goal.isActive ? '#3DD6B0' : '#4A7A8A'
+  const statusText = goal.isActive
+    ? 'Active'
+    : goal.completedAt
+      ? 'Completed'
+      : goal.status ?? 'Previous'
+  const moduleLabel = goal.moduleType
+    ? (MODULE_TYPE_LABELS[goal.moduleType] ?? goal.moduleType)
+    : null
+  const dueDate = goalDateLabel(goal.targetDate ?? goal.endDate)
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-[#C8EDE5] truncate">{goal.label}</p>
+          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+            {moduleLabel && (
+              <span className="text-xs text-[#4A7A8A]">{moduleLabel}</span>
+            )}
+            {dueDate && (
+              <span className="text-xs text-[#3E6474]">Due {dueDate}</span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <p className="text-xs font-bold" style={{ color: accent }}>{goal.progressPct}%</p>
+          <span
+            className="text-xs px-1.5 py-0.5 rounded capitalize"
+            style={{
+              background: `rgba(${hexToRgbStr(accent)},0.10)`,
+              color:      accent,
+              border:     `1px solid rgba(${hexToRgbStr(accent)},0.20)`,
+            }}
+          >
+            {statusText}
+          </span>
+        </div>
+      </div>
+      <div
+        className="w-full h-1.5 rounded-full overflow-hidden"
+        style={{ background: 'rgba(255,255,255,0.07)' }}
+      >
+        <div
+          className="h-full rounded-full transition-all"
+          style={{
+            width:      `${goal.progressPct}%`,
+            background: goal.isActive
+              ? 'linear-gradient(90deg, #3DD6B0 0%, #5EE4C0 100%)'
+              : '#4A7A8A',
+          }}
+        />
+      </div>
+      <div className="flex justify-between text-xs text-[#4A7A8A]">
+        <span>{formatAUD(goal.currentAmount)}</span>
+        <span>of {formatAUD(goal.targetAmount)}</span>
+      </div>
+    </div>
+  )
+}
+
 function GoalsCard({
-  goal,
+  goals,
   totalXp,
   xpLevel,
 }: {
-  goal:    GoalData | null
+  goals:   GoalData[]
   totalXp: number
   xpLevel: number
 }) {
@@ -342,7 +420,7 @@ function GoalsCard({
     </div>
   )
 
-  if (!goal) {
+  if (goals.length === 0) {
     return (
       <div className="glass-surface rounded-2xl p-5 h-full flex flex-col gap-4">
         <p className="section-eyebrow !mb-0">Goals and XP</p>
@@ -351,8 +429,8 @@ function GoalsCard({
             <circle cx="12" cy="12" r="9" stroke="#8CB4C0" strokeWidth="1.5"/>
             <path d="M12 8v4l3 3" stroke="#8CB4C0" strokeWidth="1.5" strokeLinecap="round"/>
           </svg>
-          <p className="text-sm text-[#4A7A8A]">No active goal</p>
-          <p className="text-xs text-[#3E6474]">Set an income goal in the app to track progress here</p>
+          <p className="text-sm text-[#4A7A8A]">No goals found</p>
+          <p className="text-xs text-[#3E6474]">Goals set in the app appear here once synced to your account</p>
         </div>
         {xpBlock}
       </div>
@@ -371,25 +449,10 @@ function GoalsCard({
         </span>
       </div>
 
-      <div className="space-y-2">
-        <div className="flex justify-between items-center">
-          <p className="text-sm font-medium text-[#C8EDE5]">{goal.label}</p>
-          <p className="text-sm font-bold text-[#3DD6B0]">{goal.progressPct}%</p>
-        </div>
-        <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.07)' }}>
-          <div
-            className="h-full rounded-full"
-            style={{
-              width:      `${goal.progressPct}%`,
-              background: 'linear-gradient(90deg, #3DD6B0 0%, #5EE4C0 100%)',
-              boxShadow:  '0 0 8px rgba(61,214,176,0.4)',
-            }}
-          />
-        </div>
-        <div className="flex justify-between text-xs text-[#4A7A8A]">
-          <span>{formatAUD(goal.currentAmount)}</span>
-          <span>{formatAUD(goal.targetAmount)}</span>
-        </div>
+      <div className="flex-1 space-y-4 overflow-hidden">
+        {goals.slice(0, 3).map((goal, i) => (
+          <GoalRow key={`${goal.label}-${i}`} goal={goal} />
+        ))}
       </div>
 
       {xpBlock}
@@ -401,35 +464,43 @@ function GoalsCard({
 
 const EXPORT_ITEMS = [
   {
-    id:       'income-summary',
-    title:    'Income Summary',
-    format:   'PDF',
-    desc:     'Monthly income breakdown across all platforms',
+    id:       'income',
+    title:    'Income History',
+    format:   'CSV',
+    desc:     'All income entries across every platform',
     accent:   '#3DD6B0',
+    href:     '/api/export/income',
+    filename: 'polarispilot-income-export',
     iconPath: 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 2v6h6M16 13H8M16 17H8M10 9H8',
   },
   {
-    id:       'tax-report',
-    title:    'Tax Report',
-    format:   'PDF',
-    desc:     'ATO-ready income and expense summary',
-    accent:   '#60C8F5',
-    iconPath: 'M9 14l2 2 4-4M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+    id:       'expenses',
+    title:    'Expense History',
+    format:   'CSV',
+    desc:     'All expense entries with categories',
+    accent:   '#F59E6A',
+    href:     '/api/export/expenses',
+    filename: 'polarispilot-expense-export',
+    iconPath: 'M20 12V22H4V12M22 7H2v5h20V7zM12 22V7M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z',
   },
   {
-    id:       'shift-csv',
-    title:    'Shift History',
+    id:       'goals',
+    title:    'Goals Summary',
     format:   'CSV',
-    desc:     'Complete log with hours, earnings and platform',
+    desc:     'All income goals with progress and dates',
     accent:   '#A78BFA',
-    iconPath: 'M4 6h16M4 10h16M4 14h8M4 18h8M14 14h6M14 18h6',
+    href:     '/api/export/goals',
+    filename: 'polarispilot-goals-export',
+    iconPath: 'M9 14l2 2 4-4M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
   },
   {
     id:       'accountant',
     title:    'Accountant Summary',
-    format:   'PDF',
-    desc:     'Clean records overview for your accountant',
+    format:   'CSV',
+    desc:     'Income, expenses and goals in one file',
     accent:   '#34D399',
+    href:     '/api/export/accountant',
+    filename: 'polarispilot-accountant-summary',
     iconPath: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z',
   },
 ] as const
@@ -440,27 +511,28 @@ function ExportCentre() {
       <div className="flex items-center justify-between mb-5">
         <div>
           <p className="section-eyebrow !mb-0">Export Centre</p>
-          <p className="text-xs text-[#4A7A8A] mt-1">Premium report exports are available in a future update</p>
+          <p className="text-xs text-[#4A7A8A] mt-1">Download your data as CSV files</p>
         </div>
         <span
           className="text-xs font-semibold px-3 py-1 rounded-full flex-shrink-0"
-          style={{ background: 'rgba(245,158,110,0.10)', color: '#F59E6A', border: '1px solid rgba(245,158,110,0.22)' }}
+          style={{ background: 'rgba(61,214,176,0.10)', color: '#3DD6B0', border: '1px solid rgba(61,214,176,0.22)' }}
         >
-          Coming soon
+          Active
         </span>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {EXPORT_ITEMS.map(({ id, title, format, desc, accent, iconPath }) => (
-          <div
+        {EXPORT_ITEMS.map(({ id, title, format, desc, accent, href, iconPath }) => (
+          <a
             key={id}
-            className="rounded-xl p-4 flex flex-col gap-3 opacity-55 cursor-not-allowed select-none"
-            style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}
-            aria-disabled="true"
+            href={href}
+            download
+            className="rounded-xl p-4 flex flex-col gap-3 cursor-pointer group"
+            style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', textDecoration: 'none' }}
           >
             <div className="flex items-start justify-between">
               <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center"
+                className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
                 style={{
                   background: `rgba(${hexToRgbStr(accent)},0.12)`,
                   border:     `1px solid rgba(${hexToRgbStr(accent)},0.22)`,
@@ -481,14 +553,13 @@ function ExportCentre() {
               <p className="text-sm font-semibold text-[#C8EDE5]">{title}</p>
               <p className="text-xs text-[#4A7A8A] mt-0.5 leading-relaxed">{desc}</p>
             </div>
-            <div className="mt-auto flex items-center gap-1 text-xs text-[#3E6474]">
+            <div className="mt-auto flex items-center gap-1 text-xs" style={{ color: accent }}>
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <rect x="5" y="11" width="14" height="10" rx="2" stroke="#3E6474" strokeWidth="2"/>
-                <path d="M8 11V7a4 4 0 018 0v4" stroke="#3E6474" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" stroke={accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              Available in a future update
+              Download {format}
             </div>
-          </div>
+          </a>
         ))}
       </div>
     </div>

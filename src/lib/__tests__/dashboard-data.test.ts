@@ -205,6 +205,7 @@ describe('loadDashboardData', () => {
     it('returns null goal', async () => {
       const result = await loadDashboardData('user-abc')
       expect(result.goal).toBeNull()
+      expect(result.goals).toEqual([])
     })
 
     it('returns 0 XP and level 1', async () => {
@@ -386,82 +387,97 @@ describe('loadDashboardData', () => {
 
   // ── goal_plans -- real table for active goal ──────────────────────────────
 
-  describe('goal_plans (active goal)', () => {
+  describe('goal_plans', () => {
     it('reads title (not label) from goal_plans', async () => {
       ;(createServiceClient as Mock).mockReturnValue(mockClient({
         ...EMPTY,
         goal_plans: {
-          data: {
+          data: [{
             title:          'June Monthly Goal',
             target_amount:  2000,
             current_amount: 1200,
             is_active:      true,
             status:         'active',
-          },
+            start_date:     null,
+            end_date:       null,
+            target_date:    null,
+            module_type:    null,
+            completed_at:   null,
+            archived_at:    null,
+            created_at:     null,
+          }],
           error: null,
         },
       }))
 
       const result = await loadDashboardData('user-abc')
-      expect(result.goal).not.toBeNull()
-      expect(result.goal!.label).toBe('June Monthly Goal')
+      expect(result.goals.length).toBeGreaterThan(0)
+      expect(result.goals[0].label).toBe('June Monthly Goal')
     })
 
     it('computes progressPct correctly', async () => {
       ;(createServiceClient as Mock).mockReturnValue(mockClient({
         ...EMPTY,
         goal_plans: {
-          data: {
+          data: [{
             title: 'Goal', target_amount: 1000, current_amount: 750,
             is_active: true, status: 'active',
-          },
+            start_date: null, end_date: null, target_date: null,
+            module_type: null, completed_at: null, archived_at: null, created_at: null,
+          }],
           error: null,
         },
       }))
 
       const result = await loadDashboardData('user-abc')
-      expect(result.goal!.progressPct).toBe(75)
+      expect(result.goals[0].progressPct).toBe(75)
     })
 
     it('caps progressPct at 100 when current exceeds target', async () => {
       ;(createServiceClient as Mock).mockReturnValue(mockClient({
         ...EMPTY,
         goal_plans: {
-          data: {
+          data: [{
             title: 'Goal', target_amount: 500, current_amount: 600,
             is_active: true, status: 'active',
-          },
+            start_date: null, end_date: null, target_date: null,
+            module_type: null, completed_at: null, archived_at: null, created_at: null,
+          }],
           error: null,
         },
       }))
 
       const result = await loadDashboardData('user-abc')
-      expect(result.goal!.progressPct).toBe(100)
+      expect(result.goals[0].progressPct).toBe(100)
     })
 
-    it('returns null goal when no active goal exists', async () => {
+    it('returns empty goals array when no goal plans exist', async () => {
       ;(createServiceClient as Mock).mockReturnValue(mockClient({
         ...EMPTY,
         goal_plans: { data: null, error: { message: 'No rows found' } },
       }))
 
       const result = await loadDashboardData('user-abc')
-      expect(result.goal).toBeNull()
+      expect(result.goals).toEqual([])
     })
 
     it('goal has no xp/level fields (those are top-level on DashboardData)', async () => {
       ;(createServiceClient as Mock).mockReturnValue(mockClient({
         ...EMPTY,
         goal_plans: {
-          data: { title: 'G', target_amount: 100, current_amount: 50, is_active: true, status: 'active' },
+          data: [{
+            title: 'G', target_amount: 100, current_amount: 50, is_active: true, status: 'active',
+            start_date: null, end_date: null, target_date: null,
+            module_type: null, completed_at: null, archived_at: null, created_at: null,
+          }],
           error: null,
         },
       }))
 
       const result = await loadDashboardData('user-abc')
       // GoalData interface has no xp or level properties
-      expect(result.goal).not.toHaveProperty('xp')
-      expect(result.goal).not.toHaveProperty('level')
+      expect(result.goals[0]).not.toHaveProperty('xp')
+      expect(result.goals[0]).not.toHaveProperty('level')
     })
   })
 
@@ -1035,7 +1051,11 @@ describe('loadDashboardData', () => {
       ;(createServiceClient as Mock).mockReturnValue(mockClient({
         ...EMPTY,
         goal_plans: {
-          data: { title: 'Goal', target_amount: 1000, current_amount: 1000, is_active: true, status: 'active' },
+          data: [{
+            title: 'Goal', target_amount: 1000, current_amount: 1000, is_active: true, status: 'active',
+            start_date: null, end_date: null, target_date: null,
+            module_type: null, completed_at: null, archived_at: null, created_at: null,
+          }],
           error: null,
         },
       }))

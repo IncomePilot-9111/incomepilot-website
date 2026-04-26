@@ -49,6 +49,14 @@ export interface GoalData {
   currentAmount: number
   targetAmount:  number
   progressPct:   number
+  // Extended fields (v2 -- added for full goal display and export)
+  startDate:     string | null   // YYYY-MM-DD
+  endDate:       string | null   // YYYY-MM-DD
+  targetDate:    string | null   // YYYY-MM-DD
+  moduleType:    string | null
+  status:        string | null
+  isActive:      boolean
+  completedAt:   string | null   // ISO timestamp
 }
 
 export interface CalendarEvent {
@@ -89,6 +97,7 @@ export interface DashboardData {
   summary:         SummaryData
   modules:         ModuleData
   goal:            GoalData | null
+  goals:           GoalData[]
   totalXp:         number
   xpLevel:         number
   upcomingEvents:  CalendarEvent[]
@@ -383,39 +392,64 @@ async function loadModules(
   }, { active: [] as string[], count: 0 })
 }
 
-async function loadActiveGoal(
+async function loadGoals(
   service: ServiceClient,
   userId:  string,
-): Promise<GoalData | null> {
-  return safeQuery<GoalData | null>(async () => {
+): Promise<GoalData[]> {
+  return safeQuery(async () => {
     const { data, error } = await service
       .from('goal_plans')
-      .select('title, target_amount, current_amount, is_active, status')
+      .select(
+        'id, title, target_amount, current_amount, is_active, status, ' +
+        'start_date, end_date, target_date, module_type, completed_at, ' +
+        'archived_at, created_at',
+      )
       .eq('user_id', userId)
-      .eq('is_active', true)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
+      .limit(10)
 
-    if (error || !data) return null
+    if (error || !data) return []
 
-    const row = data as {
-      title:          string | null
-      target_amount:  number | null
-      current_amount: number | null
+    type GoalRow = {
+      is_active:      unknown
+      current_amount: unknown
+      target_amount:  unknown
+      title:          unknown
+      start_date:     unknown
+      end_date:       unknown
+      target_date:    unknown
+      module_type:    unknown
+      status:         unknown
+      completed_at:   unknown
     }
 
-    const current = row.current_amount ?? 0
-    const target  = row.target_amount  ?? 0
+    // Active goals first, then recent
+    const rows = (data as unknown as GoalRow[])
+    const sorted = [...rows].sort((a, b) => {
+      if (a.is_active === true && b.is_active !== true) return -1
+      if (a.is_active !== true && b.is_active === true) return  1
+      return 0
+    })
 
-    return {
-      label:         row.title ?? 'Income Goal',
-      currentAmount: current,
-      targetAmount:  target,
-      progressPct:   target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0,
-    }
-  }, null)
+    return sorted.slice(0, 5).map(row => {
+      const current = (row.current_amount as number) ?? 0
+      const target  = (row.target_amount  as number) ?? 0
+      return {
+        label:         (row.title as string | null) ?? 'Income Goal',
+        currentAmount: current,
+        targetAmount:  target,
+        progressPct:   target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0,
+        startDate:     (row.start_date   as string | null) ?? null,
+        endDate:       (row.end_date     as string | null) ?? null,
+        targetDate:    (row.target_date  as string | null) ?? null,
+        moduleType:    (row.module_type  as string | null) ?? null,
+        status:        (row.status       as string | null) ?? null,
+        isActive:      row.is_active === true,
+        completedAt:   (row.completed_at as string | null) ?? null,
+      }
+    })
+  }, [])
 }
 
 async function loadTotalXp(
@@ -669,16 +703,19 @@ export async function loadDashboardData(userId: string): Promise<DashboardData> 
   const windowStart     = earlierDate(monthStart, sevenDaysAgoStr)
 
   // All queries run concurrently
-  const [incomeRows, expenseRows, modules, goal, totalXp, upcomingEvents, taxProfile, hasAnyHistory] = await Promise.all([
+  const [incomeRows, expenseRows, modules, goals, totalXp, upcomingEvents, taxProfile, hasAnyHistory] = await Promise.all([
     loadIncomeRows(service, userId, windowStart, monthEnd),
     loadExpenseRows(service, userId, windowStart, monthEnd),
     loadModules(service, userId),
-    loadActiveGoal(service, userId),
+    loadGoals(service, userId),
     loadTotalXp(service, userId),
     loadUpcomingEvents(service, userId, now, todayStr),
     loadTaxReportsProfile(service, userId),
     loadHasAnyHistory(service, userId),
   ])
+
+  // Single active goal (used by Compass pace pillar)
+  const goal = goals.find(g => g.isActive) ?? goals[0] ?? null
 
   // Scope rows to current month for financial summary
   const monthIncomeRows  = incomeRows.filter(r => r.entry_date  >= monthStart)
@@ -745,6 +782,7 @@ export async function loadDashboardData(userId: string): Promise<DashboardData> 
     },
     modules,
     goal,
+    goals,
     totalXp,
     xpLevel:        xpToLevel(totalXp),
     upcomingEvents,
