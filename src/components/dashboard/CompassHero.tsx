@@ -21,15 +21,15 @@ function arcOffset(score: number): number {
 }
 
 const PILLAR_LABELS: Record<string, string> = {
-  goalPace:    'Goal Pace',
+  pace:        'Pace',
+  hourly:      'Hourly',
   consistency: 'Consistency',
   expenses:    'Expenses',
-  modules:     'Modules',
-  activity:    'Activity',
+  readiness:   'Readiness',
 }
 
 export default function CompassHero({ compass }: Props) {
-  const { score, levelLabel, levelColor, summary, positiveSignals, improvementSignals, pillarScores } = compass
+  const { score, gradeLabel, levelColor, summary, positiveSignals, improvementSignals, pillarScores } = compass
 
   return (
     <div
@@ -46,7 +46,7 @@ export default function CompassHero({ compass }: Props) {
             width="140"
             height="140"
             viewBox="0 0 140 140"
-            aria-label={`Compass score ${score} out of 100`}
+            aria-label={`Compass score ${score} out of 100, grade ${gradeLabel}`}
           >
             {/* Background track */}
             <circle
@@ -90,16 +90,16 @@ export default function CompassHero({ compass }: Props) {
             </text>
           </svg>
 
-          {/* Level badge */}
+          {/* Grade badge */}
           <span
-            className="text-xs font-semibold px-3 py-1 rounded-full"
+            className="text-sm font-bold px-3 py-1 rounded-full tracking-wide"
             style={{
               background: `${levelColor}18`,
               color:       levelColor,
               border:      `1px solid ${levelColor}35`,
             }}
           >
-            {levelLabel}
+            {gradeLabel}
           </span>
         </div>
 
@@ -124,7 +124,7 @@ export default function CompassHero({ compass }: Props) {
                     className="h-full rounded-full"
                     style={{
                       width:      `${val}%`,
-                      background: val >= 75 ? levelColor : val >= 50 ? '#60C8F5' : '#F59E6A',
+                      background: val >= 85 ? '#55CC94' : val >= 70 ? '#68B2FF' : val >= 50 ? '#F2AA4C' : '#FF5C7A',
                     }}
                   />
                 </div>

@@ -1,133 +1,209 @@
 /**
- * Web-safe Compass Score computation.
+ * Web-safe Compass Score computation -- v2.
  *
- * Adapted from the PolarisPilot mobile app's 5-pillar scoring system for
- * use with cloud Supabase data. This is NOT a port of the local-first SQLite
- * code -- it is a server-side re-derivation using the same conceptual pillars
- * applied to cloud-synced data.
+ * Aligned with CompassInsightsSummaryKernel.build() in the PolarisPilot mobile
+ * app (compass_insights_summary.dart). This is a server-side re-derivation
+ * using Supabase-backed equivalents of the mobile 5-pillar formula.
  *
  * Reference: flutter_application_1/lib/data/compass_insights_summary.dart
- * (read-only reference, not copied)
+ * (read-only reference -- not copied. WEBSITE ONLY changes.)
  *
  * 5 pillars (weights sum to 1.0):
- *   Pace         25% -- goal progress % vs this month's target
- *   Consistency  25% -- distinct days with income logged in last 7 days
- *   Expenses     20% -- expense ratio (expenses / income, this month)
- *   Modules      15% -- count of active income platforms
- *   Activity     15% -- total XP earned (proxy for engagement depth)
+ *   Pace         25% -- goal progress vs projected target for current date
+ *   Hourly       20% -- FALLBACK constant 70 (WorkHub delta data not in Supabase)
+ *   Consistency  20% -- coverage x 100 minus variance penalty, clamped 30-100
+ *   Expenses     20% -- expense ratio (expenses / income, this week)
+ *   Readiness    15% -- sum of 4 binary signals (income, expenses, setup, categories)
  *
- * Level labels (0-100 scale):
- *   80-100  Strong Momentum
- *   60-79   On Track
- *   40-59   Building Rhythm
- *   0-39    Getting Started
+ * No-data fallback: ALL pillars return 70 when inputs are sparse.
+ * Composite score when all pillars are 70 = 70 (matches mobile exactly).
+ *
+ * Grade labels (mobile-aligned _gradeFor thresholds):
+ *   90-100  A
+ *   85-89   A-
+ *   80-84   B+
+ *   70-79   B
+ *   60-69   C
+ *   50-59   D
+ *   0-49    NA
+ *
+ * Score colours (mobile _scoreColor thresholds):
+ *   >= 85  #55CC94  (semantic success green)
+ *   >= 70  #3DD6B0  (secondary teal)
+ *   >= 50  #F2AA4C  (semantic warning amber)
+ *   <  50  #FF5C7A  (semantic danger red)
  *
  * All functions are pure and deterministic. Safe to call with zeroed inputs.
  */
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// --- Types -------------------------------------------------------------------
 
 export interface CompassInput {
-  /** Month-to-date gross income (AUD) */
-  totalIncome:     number
-  /** Month-to-date total expenses (AUD) */
-  totalExpenses:   number
-  /** Count of distinct enabled modules in workspace_preferences */
-  modulesCount:    number
-  /** goal_plans.current_amount / target_amount * 100, or null if no active goal */
-  goalProgressPct: number | null
-  /** Sum of premium_xp_ledger.amount for this user */
-  totalXp:         number
-  /** Count of days with at least one income entry in the last 7 days */
-  activeDaysLast7: number
+  /** Week-to-date gross income (AUD), Monday-Sunday current week */
+  weekIncome: number
+  /** Week-to-date total expenses (AUD), Monday-Sunday current week.
+   *  Note: mobile uses allocatedBusinessAmount per entry; web uses
+   *  expense_entries.amount -- closest available field in Supabase. */
+  weekExpenses: number
+  /** Count of distinct days this week with at least one income entry (0-7) */
+  weekActiveDays: number
+  /** Per-day income totals for the active days only (used for variance calc).
+   *  Length should equal weekActiveDays. */
+  weekDailyAmounts: number[]
+  /** True if the user has any income entries in all-time history */
+  hasAnyHistory: boolean
+  /** True if tax reporting setup acknowledged:
+   *  ato_setup_completed OR manual_setup_completed OR tax_disabled
+   *  from tax_reports_profile table. */
+  reportSetupAcknowledged: boolean
+  /** 0..1 -- share of this-week expense entries with a non-empty category */
+  categoryCoverage: number
+  /** Count of expense entries this week */
+  weekExpenseCount: number
+  /** Goal pace derived from month progress vs expected daily target.
+   *  null = no active goal (neutral fallback). */
+  goalPaceStatus: 'ahead' | 'onPace' | 'behind' | null
 }
 
 export interface CompassPillarScores {
-  goalPace:    number  // 0-100
+  pace:        number  // 0-100
+  hourly:      number  // 0-100
   consistency: number  // 0-100
   expenses:    number  // 0-100
-  modules:     number  // 0-100
-  activity:    number  // 0-100
+  readiness:   number  // 0-100
 }
 
 export interface CompassData {
-  score:              number          // 0-100 integer
-  levelLabel:         string          // "Getting Started" | "Building Rhythm" | "On Track" | "Strong Momentum"
-  levelColor:         string          // hex accent colour matching level
-  summary:            string          // one sentence for the hero card
-  positiveSignals:    string[]        // what is working well
-  improvementSignals: string[]        // what to focus on
+  score:              number               // 0-100 integer
+  gradeLabel:         string               // 'A' | 'A-' | 'B+' | 'B' | 'C' | 'D' | 'NA'
+  levelColor:         string               // hex accent colour matching grade
+  summary:            string               // one sentence for the hero card
+  positiveSignals:    string[]             // what is working well
+  improvementSignals: string[]             // what to focus on
   pillarScores:       CompassPillarScores
 }
 
-// ─── Pillar calculators (pure, return 0-100) ──────────────────────────────────
+// --- Pillar calculators (pure, return 0-100) ---------------------------------
 
-/** Pace: how well goal progress tracks the target */
-export function calcPaceScore(goalProgressPct: number | null): number {
-  if (goalProgressPct === null) return 50  // neutral -- no goal set
-  if (goalProgressPct >= 100) return 100
-  if (goalProgressPct >= 80)  return 90
-  if (goalProgressPct >= 60)  return 75
-  if (goalProgressPct >= 40)  return 60
-  if (goalProgressPct >= 20)  return 45
-  return 30
+/** Pace: goal progress vs projected daily target.
+ *  Mirrors mobile _buildPacePillar.
+ *  null (no active goal) -> neutral 70. */
+export function calcPaceScore(status: CompassInput['goalPaceStatus']): number {
+  if (status === null)     return 70  // neutral -- no goal (matches mobile no-forecast fallback)
+  if (status === 'ahead')  return 95
+  if (status === 'onPace') return 80
+  return 50  // 'behind'
 }
 
-/** Consistency: frequency of income logging over the last 7 days */
-export function calcConsistencyScore(activeDays: number): number {
-  if (activeDays >= 5) return 90
-  if (activeDays >= 3) return 70
-  if (activeDays >= 2) return 50
-  if (activeDays >= 1) return 35
-  return 15
+/** Hourly: week-over-week hourly earnings delta.
+ *  Mobile uses WorkHub delta data unavailable in Supabase.
+ *  Returns mobile no-data fallback (70) with documented deviation. */
+export function calcHourlyScore(): number {
+  return 70  // constant fallback -- WorkHub delta not available in Supabase
 }
 
-/** Expenses: ratio of expenses to income (lower ratio = better) */
-export function calcExpensesScore(totalIncome: number, totalExpenses: number): number {
-  if (totalIncome <= 0) return 50  // neutral -- no income data yet
-  const ratio = totalExpenses / totalIncome
+/** Consistency: coverage x 100 minus coefficient-of-variation penalty.
+ *  Mirrors mobile _buildConsistencyPillar.
+ *
+ *  Formula: value = (coverage x 100 - (dispersion / 2) x 20).clamp(30, 100)
+ *  coverage   = weekActiveDays / 7
+ *  dispersion = (stdDev / mean).clamp(0, 2)  [0 when mean = 0]
+ */
+export function calcConsistencyScore(
+  weekActiveDays: number,
+  weekDailyAmounts: number[],
+): number {
+  // No activity this week -> no-data fallback
+  if (weekActiveDays === 0) return 70
+
+  const coverage = weekActiveDays / 7
+
+  let dispersion = 0
+  if (weekDailyAmounts.length >= 2) {
+    const mean = weekDailyAmounts.reduce((s, v) => s + v, 0) / weekDailyAmounts.length
+    if (mean > 0) {
+      const variance =
+        weekDailyAmounts.reduce((s, v) => s + (v - mean) ** 2, 0) / weekDailyAmounts.length
+      const stdDev = Math.sqrt(variance)
+      dispersion = Math.min(2, stdDev / mean)
+    }
+  }
+
+  const raw = coverage * 100 - (dispersion / 2) * 20
+  return Math.round(Math.max(30, Math.min(100, raw)))
+}
+
+/** Expenses: ratio of expenses to income (lower ratio = better).
+ *  Mirrors mobile _buildExpensesPillar.
+ *  Uses week-scoped data (not month-to-date as in v1).
+ *  weekIncome <= 0 -> neutral 70. */
+export function calcExpensesScore(weekIncome: number, weekExpenses: number): number {
+  if (weekIncome <= 0) return 70  // no-data fallback
+  const ratio = weekExpenses / weekIncome
   if (ratio < 0.15) return 90
   if (ratio < 0.30) return 75
   if (ratio < 0.50) return 55
-  if (ratio < 0.75) return 35
-  return 20
+  return 35
 }
 
-/** Modules: breadth of active income platforms tracked */
-export function calcModulesScore(count: number): number {
-  if (count >= 3) return 90
-  if (count >= 2) return 75
-  if (count >= 1) return 55
-  return 30
+/** Readiness: sum of 4 binary signals (25 pts each) with history floor.
+ *  Mirrors mobile _buildReadinessPillar.
+ *
+ *  Signals:
+ *   +25  hasWeekIncome            -- income entries exist this week
+ *   +25  hasWeekExpenses          -- expense entries exist this week
+ *   +round(categoryCoverage x 25) -- fraction of week expenses categorised
+ *   +25  reportSetupAcknowledged  -- tax setup decision recorded
+ *
+ *  Floor: if score is 0 but hasAnyHistory, floor to 30.
+ *  All signals absent -> neutral 70. */
+export function calcReadinessScore(
+  hasWeekIncome: boolean,
+  hasWeekExpenses: boolean,
+  hasAnyHistory: boolean,
+  reportSetupAcknowledged: boolean,
+  categoryCoverage: number,
+): number {
+  // No-data fallback
+  if (!hasWeekIncome && !hasWeekExpenses && !hasAnyHistory && !reportSetupAcknowledged) {
+    return 70
+  }
+
+  let score = 0
+  if (hasWeekIncome)           score += 25
+  if (hasWeekExpenses)         score += 25
+  score += Math.round(categoryCoverage * 25)
+  if (reportSetupAcknowledged) score += 25
+
+  // Floor: history exists but nothing this week -> keep sensible minimum
+  if (score === 0 && hasAnyHistory) score = 30
+
+  return Math.max(0, Math.min(100, score))
 }
 
-/** Activity: total XP accumulated (reflects depth of engagement) */
-export function calcActivityScore(totalXp: number): number {
-  if (totalXp >= 1000) return 90
-  if (totalXp >= 500)  return 75
-  if (totalXp >= 100)  return 55
-  if (totalXp >= 1)    return 40
-  return 25
+// --- Grade helpers -----------------------------------------------------------
+
+/** Map 0-100 score to letter grade matching mobile's _gradeFor(). */
+export function scoreToGradeLabel(score: number): string {
+  if (score >= 90) return 'A'
+  if (score >= 85) return 'A-'
+  if (score >= 80) return 'B+'
+  if (score >= 70) return 'B'
+  if (score >= 60) return 'C'
+  if (score >= 50) return 'D'
+  return 'NA'
 }
 
-// ─── Level helpers ────────────────────────────────────────────────────────────
-
-export function scoreToLevelLabel(score: number): string {
-  if (score >= 80) return 'Strong Momentum'
-  if (score >= 60) return 'On Track'
-  if (score >= 40) return 'Building Rhythm'
-  return 'Getting Started'
-}
-
+/** Map 0-100 score to hex colour matching mobile's _scoreColor(). */
 export function scoreToLevelColor(score: number): string {
-  if (score >= 80) return '#3DD6B0'
-  if (score >= 60) return '#5EE4C0'
-  if (score >= 40) return '#60C8F5'
-  return '#F59E6A'
+  if (score >= 85) return '#55CC94'  // semantic success green
+  if (score >= 70) return '#3DD6B0'  // secondary teal
+  if (score >= 50) return '#F2AA4C'  // semantic warning amber
+  return '#FF5C7A'                    // semantic danger red
 }
 
 function buildSummary(score: number, input: CompassInput): string {
-  if (input.totalIncome === 0 && input.activeDaysLast7 === 0)
+  if (input.weekIncome === 0 && input.weekActiveDays === 0 && !input.hasAnyHistory)
     return 'Start logging income in the app to build your Compass score.'
   if (score >= 80)
     return 'Excellent momentum -- income is consistent and goals are progressing well.'
@@ -138,7 +214,7 @@ function buildSummary(score: number, input: CompassInput): string {
   return 'Set a goal and log your first income entries to unlock your full Compass.'
 }
 
-// ─── Signal builders ──────────────────────────────────────────────────────────
+// --- Signal builders ---------------------------------------------------------
 
 function buildSignals(
   input:   CompassInput,
@@ -147,102 +223,103 @@ function buildSignals(
   const positive:    string[] = []
   const improvement: string[] = []
 
-  // ── Positive ───────────────────────────────────────────────────────────────
-  if (input.goalProgressPct !== null && pillars.goalPace >= 75)
+  // Positive
+  if (input.goalPaceStatus === 'ahead')
     positive.push('Goal is tracking ahead of schedule')
 
-  if (input.activeDaysLast7 >= 3)
-    positive.push(`${input.activeDaysLast7} income ${input.activeDaysLast7 === 1 ? 'day' : 'days'} logged this week`)
+  if (input.weekActiveDays >= 3)
+    positive.push(`${input.weekActiveDays} income ${input.weekActiveDays === 1 ? 'day' : 'days'} logged this week`)
 
-  if (input.totalIncome > 0 && pillars.expenses >= 75)
+  if (input.weekIncome > 0 && pillars.expenses >= 75)
     positive.push('Expenses well managed relative to income')
 
-  if (input.modulesCount >= 2)
-    positive.push(`${input.modulesCount} income platforms actively tracked`)
+  if (input.reportSetupAcknowledged)
+    positive.push('Tax reporting setup is complete')
 
-  if (input.totalXp >= 100)
-    positive.push('XP momentum building -- great engagement')
+  if (input.categoryCoverage >= 0.8 && input.weekExpenseCount > 0)
+    positive.push('Expenses are well categorised this week')
 
-  if (positive.length === 0 && input.totalIncome > 0)
-    positive.push('Income activity recorded this month')
+  if (positive.length === 0 && input.weekIncome > 0)
+    positive.push('Income activity recorded this week')
 
-  // ── Improvement ────────────────────────────────────────────────────────────
-  if (input.goalProgressPct === null)
+  // Improvement
+  if (input.goalPaceStatus === null)
     improvement.push('Set a monthly income goal in the app to track pace')
-  else if (pillars.goalPace < 50)
+  else if (input.goalPaceStatus === 'behind')
     improvement.push('Goal is behind target -- increase logging frequency')
 
-  if (input.activeDaysLast7 < 2)
+  if (input.weekActiveDays < 2)
     improvement.push('Log income more consistently to build weekly rhythm')
 
-  if (input.totalIncome > 0 && pillars.expenses < 55)
+  if (input.weekIncome > 0 && pillars.expenses < 55)
     improvement.push('High expenses are reducing net income position')
 
-  if (input.modulesCount < 2)
-    improvement.push('Track more income sources across additional modules')
+  if (!input.reportSetupAcknowledged)
+    improvement.push('Complete tax setup in the app to unlock readiness signals')
 
-  if (input.totalIncome === 0)
-    improvement.push('No income logged this month -- open the app to start')
+  if (input.weekIncome === 0)
+    improvement.push('No income logged this week -- open the app to start')
 
   return { positive, improvement }
 }
 
-// ─── Main export ──────────────────────────────────────────────────────────────
+// --- Main export -------------------------------------------------------------
 
 export function computeCompassScore(input: CompassInput): CompassData {
-  // Normalise inputs: guard against NaN/Infinity passed by future callers.
-  // (The current loadDashboardData() path never produces NaN, but callers
-  // outside the dashboard could pass raw DB values without validation.)
+  // Guard NaN/Infinity
   const safeNum = (v: number) => (Number.isFinite(v) ? v : 0)
+  const safeArr = (arr: number[]) =>
+    (arr ?? []).map(v => (Number.isFinite(v) ? Math.max(0, v) : 0))
 
-  const totalIncome    = safeNum(input.totalIncome)
-  const totalExpenses  = safeNum(input.totalExpenses)
-  const modulesCount   = safeNum(input.modulesCount)
-  const totalXp        = safeNum(input.totalXp)
-  const activeDaysLast7 = safeNum(input.activeDaysLast7)
-  // goalProgressPct is allowed to be null (neutral); normalise non-finite numbers.
-  const goalProgressPct: number | null =
-    input.goalProgressPct === null
-      ? null
-      : Number.isFinite(input.goalProgressPct)
-        ? input.goalProgressPct
-        : null
+  const weekIncome     = safeNum(input.weekIncome)
+  const weekExpenses   = safeNum(input.weekExpenses)
+  const weekActiveDays =
+    Math.max(0, Math.min(7, Math.round(safeNum(input.weekActiveDays))))
+  const weekDailyAmounts   = safeArr(input.weekDailyAmounts)
+  const categoryCoverage   = Math.max(0, Math.min(1, safeNum(input.categoryCoverage)))
+  const weekExpenseCount   = Math.max(0, Math.round(safeNum(input.weekExpenseCount)))
 
-  // Build a normalised copy of the input so buildSummary/buildSignals only
-  // ever see safe, finite values.
   const safeInput: CompassInput = {
-    totalIncome,
-    totalExpenses,
-    modulesCount,
-    totalXp,
-    activeDaysLast7,
-    goalProgressPct,
+    weekIncome,
+    weekExpenses,
+    weekActiveDays,
+    weekDailyAmounts,
+    hasAnyHistory:           Boolean(input.hasAnyHistory),
+    reportSetupAcknowledged: Boolean(input.reportSetupAcknowledged),
+    categoryCoverage,
+    weekExpenseCount,
+    goalPaceStatus:          input.goalPaceStatus ?? null,
   }
 
   const pillars: CompassPillarScores = {
-    goalPace:    calcPaceScore(safeInput.goalProgressPct),
-    consistency: calcConsistencyScore(safeInput.activeDaysLast7),
-    expenses:    calcExpensesScore(safeInput.totalIncome, safeInput.totalExpenses),
-    modules:     calcModulesScore(safeInput.modulesCount),
-    activity:    calcActivityScore(safeInput.totalXp),
+    pace:        calcPaceScore(safeInput.goalPaceStatus),
+    hourly:      calcHourlyScore(),
+    consistency: calcConsistencyScore(safeInput.weekActiveDays, safeInput.weekDailyAmounts),
+    expenses:    calcExpensesScore(safeInput.weekIncome, safeInput.weekExpenses),
+    readiness:   calcReadinessScore(
+                   safeInput.weekIncome > 0,
+                   safeInput.weekExpenseCount > 0,
+                   safeInput.hasAnyHistory,
+                   safeInput.reportSetupAcknowledged,
+                   safeInput.categoryCoverage,
+                 ),
   }
 
+  // Weighted sum: Pace 25%, Hourly 20%, Consistency 20%, Expenses 20%, Readiness 15%
   const rawScore =
-    pillars.goalPace    * 0.25 +
-    pillars.consistency * 0.25 +
+    pillars.pace        * 0.25 +
+    pillars.hourly      * 0.20 +
+    pillars.consistency * 0.20 +
     pillars.expenses    * 0.20 +
-    pillars.modules     * 0.15 +
-    pillars.activity    * 0.15
+    pillars.readiness   * 0.15
 
-  // The weighted sum of integer pillar scores can never produce NaN here,
-  // but Math.max/min/round provide a final hard clamp as a safety net.
   const score = Math.round(Math.max(0, Math.min(100, rawScore || 0)))
 
   const { positive, improvement } = buildSignals(safeInput, pillars)
 
   return {
     score,
-    levelLabel:         scoreToLevelLabel(score),
+    gradeLabel:         scoreToGradeLabel(score),
     levelColor:         scoreToLevelColor(score),
     summary:            buildSummary(score, safeInput),
     positiveSignals:    positive,

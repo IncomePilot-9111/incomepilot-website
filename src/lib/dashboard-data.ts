@@ -151,6 +151,31 @@ function monthEndDateStr(now: Date): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 }
 
+/** ISO week: return the Monday of the week containing `now` as YYYY-MM-DD */
+function currentWeekStartStr(now: Date): string {
+  const d   = new Date(now)
+  const day = d.getDay()  // 0=Sun 1=Mon ... 6=Sat
+  const diff = day === 0 ? -6 : 1 - day  // days to Monday
+  d.setDate(d.getDate() + diff)
+  return toDateStr(d)
+}
+
+/** Derive goal pace relative to today's expected progress through the month.
+ *  Matches the spirit of _buildPacePillar's 'ahead'/'onPace'/'behind' logic. */
+function deriveGoalPaceStatus(
+  goal: GoalData | null,
+  now: Date,
+): 'ahead' | 'onPace' | 'behind' | null {
+  if (!goal || goal.targetAmount <= 0) return null
+  const daysInMonth     = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  const dayOfMonth      = now.getDate()
+  const expectedFrac    = dayOfMonth / daysInMonth
+  const actualFrac      = goal.currentAmount / goal.targetAmount
+  if (actualFrac >= 1.0 || actualFrac >= expectedFrac * 1.05) return 'ahead'
+  if (actualFrac >= expectedFrac * 0.85)                       return 'onPace'
+  return 'behind'
+}
+
 /** Return the lexicographically earlier YYYY-MM-DD string */
 function earlierDate(a: string, b: string): string {
   return a <= b ? a : b
@@ -409,6 +434,46 @@ async function loadTotalXp(
   }, 0)
 }
 
+interface TaxReportsRow {
+  ato_setup_completed:    boolean | null
+  manual_setup_completed: boolean | null
+  tax_disabled:           boolean | null
+}
+
+async function loadTaxReportsProfile(
+  service: ServiceClient,
+  userId:  string,
+): Promise<TaxReportsRow | null> {
+  return safeQuery<TaxReportsRow | null>(async () => {
+    const { data, error } = await service
+      .from('tax_reports_profile')
+      .select('ato_setup_completed, manual_setup_completed, tax_disabled')
+      .eq('user_id', userId)
+      .is('deleted_at', null)
+      .single()
+
+    if (error || !data) return null
+    return data as TaxReportsRow
+  }, null)
+}
+
+async function loadHasAnyHistory(
+  service: ServiceClient,
+  userId:  string,
+): Promise<boolean> {
+  return safeQuery(async () => {
+    const { data, error } = await service
+      .from('income_entries')
+      .select('id')
+      .eq('user_id', userId)
+      .is('deleted_at', null)
+      .limit(1)
+
+    if (error) return false
+    return (data ?? []).length > 0
+  }, false)
+}
+
 // ─── Calendar event sources (all return CalendarEvent[]) ─────────────────────
 
 async function eventsFromPlannedShifts(
@@ -604,13 +669,15 @@ export async function loadDashboardData(userId: string): Promise<DashboardData> 
   const windowStart     = earlierDate(monthStart, sevenDaysAgoStr)
 
   // All queries run concurrently
-  const [incomeRows, expenseRows, modules, goal, totalXp, upcomingEvents] = await Promise.all([
+  const [incomeRows, expenseRows, modules, goal, totalXp, upcomingEvents, taxProfile, hasAnyHistory] = await Promise.all([
     loadIncomeRows(service, userId, windowStart, monthEnd),
     loadExpenseRows(service, userId, windowStart, monthEnd),
     loadModules(service, userId),
     loadActiveGoal(service, userId),
     loadTotalXp(service, userId),
     loadUpcomingEvents(service, userId, now, todayStr),
+    loadTaxReportsProfile(service, userId),
+    loadHasAnyHistory(service, userId),
   ])
 
   // Scope rows to current month for financial summary
@@ -620,20 +687,52 @@ export async function loadDashboardData(userId: string): Promise<DashboardData> 
   const totalIncome   = monthIncomeRows.reduce((s, r) => s + rowIncomeAmount(r), 0)
   const totalExpenses = monthExpenseRows.reduce((s, r) => s + (r.amount ?? 0), 0)
 
+  // --- Compass week-scoped inputs (Mon-Sun current week) --------------------
+  const weekStart       = currentWeekStartStr(now)
+  const weekEndDate     = new Date(weekStart)
+  weekEndDate.setDate(weekEndDate.getDate() + 6)
+  const weekEnd         = toDateStr(weekEndDate)
+
+  const weekIncomeRows  = incomeRows.filter(r => r.entry_date >= weekStart && r.entry_date <= weekEnd)
+  const weekExpenseRows = expenseRows.filter(r => r.expense_date >= weekStart && r.expense_date <= weekEnd)
+
+  const weekIncome   = weekIncomeRows.reduce((s, r) => s + rowIncomeAmount(r), 0)
+  const weekExpenses = weekExpenseRows.reduce((s, r) => s + (r.amount ?? 0), 0)
+
+  // Per-day totals for active days (for consistency variance calc)
+  const dailyMap: Record<string, number> = {}
+  for (const r of weekIncomeRows) {
+    const amt = rowIncomeAmount(r)
+    if (amt > 0) dailyMap[r.entry_date] = (dailyMap[r.entry_date] ?? 0) + amt
+  }
+  const weekActiveDays   = Object.keys(dailyMap).length
+  const weekDailyAmounts = Object.values(dailyMap)
+
+  // Category coverage for week expenses
+  const weekExpenseCount = weekExpenseRows.length
+  const weekCategorised  = weekExpenseRows.filter(r => (r.category ?? '').trim().length > 0).length
+  const categoryCoverage = weekExpenseCount > 0 ? weekCategorised / weekExpenseCount : 0
+
+  // Tax setup acknowledged
+  const reportSetupAcknowledged =
+    taxProfile !== null &&
+    Boolean(taxProfile.ato_setup_completed || taxProfile.manual_setup_completed || taxProfile.tax_disabled)
+
   // Derive all secondary datasets in memory (no extra DB calls)
   const weeklyTrend    = deriveWeeklyTrend(incomeRows, expenseRows, now)
   const moduleBreakdown = deriveModuleBreakdown(monthIncomeRows, totalIncome)
   const recentActivity  = deriveRecentActivity(incomeRows, expenseRows)
 
-  const activeDaysLast7 = weeklyTrend.filter(d => d.income > 0).length
-
   const compass = computeCompassScore({
-    totalIncome,
-    totalExpenses,
-    modulesCount:    modules.count,
-    goalProgressPct: goal?.progressPct ?? null,
-    totalXp,
-    activeDaysLast7,
+    weekIncome,
+    weekExpenses,
+    weekActiveDays,
+    weekDailyAmounts,
+    hasAnyHistory,
+    reportSetupAcknowledged,
+    categoryCoverage,
+    weekExpenseCount,
+    goalPaceStatus: deriveGoalPaceStatus(goal, now),
   })
 
   return {

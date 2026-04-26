@@ -120,6 +120,7 @@ const EMPTY: Record<string, QueryResult> = {
   freelance_entries:           { data: [],   error: null },
   salary_employment_profiles:  { data: [],   error: null },
   salary_leave_entries:        { data: [],   error: null },
+  tax_reports_profile:         { data: null, error: { message: 'No rows found' } },
 }
 
 // ─── Pure helper tests ────────────────────────────────────────────────────────
@@ -741,6 +742,7 @@ describe('loadDashboardData', () => {
         freelance_entries:          errResult,
         salary_employment_profiles: errResult,
         salary_leave_entries:       errResult,
+        tax_reports_profile:        errResult,
       }))
 
       const result = await loadDashboardData('user-abc')
@@ -972,13 +974,13 @@ describe('loadDashboardData', () => {
     })
   })
 
-  // ── compass -- Compass score derived from cloud data ─────────────────────
+  // ── compass -- Compass score derived from cloud data (v2 formula) ──────────
 
   describe('compass', () => {
     it('returns a compass object with all required fields', async () => {
       const result = await loadDashboardData('user-abc')
       expect(result.compass).toHaveProperty('score')
-      expect(result.compass).toHaveProperty('levelLabel')
+      expect(result.compass).toHaveProperty('gradeLabel')   // v2: letter grade not level label
       expect(result.compass).toHaveProperty('levelColor')
       expect(result.compass).toHaveProperty('summary')
       expect(result.compass).toHaveProperty('positiveSignals')
@@ -986,64 +988,50 @@ describe('loadDashboardData', () => {
       expect(result.compass).toHaveProperty('pillarScores')
     })
 
-    it('score is 35 (neutral baseline) when all data is empty', async () => {
-      // goalPace(null)=50*0.25 + consistency(0)=15*0.25 + expenses(0,0)=50*0.20
-      // + modules(0)=30*0.15 + activity(0)=25*0.15 = 34.5 -> Math.round = 35
+    it('score is 70 (no-data neutral baseline) when all data is empty', async () => {
+      // All pillars return 70 no-data fallback. Weighted sum = 70.
+      // Matches mobile CompassInsightsSummaryKernel behaviour exactly.
       const result = await loadDashboardData('user-abc')
-      expect(result.compass.score).toBe(35)
+      expect(result.compass.score).toBe(70)
     })
 
-    it('score increases when income is logged', async () => {
-      ;(createServiceClient as Mock).mockReturnValue(mockClient({
-        ...EMPTY,
-        income_entries: {
-          data: [incRow({ id: 'i1', gross_amount: 500, source: 'rideshare' })],
-          error: null,
-        },
-        premium_xp_ledger: { data: [{ amount: 100 }], error: null },
-      }))
-
+    it('gradeLabel is B for score=70 (no-data baseline)', async () => {
       const result = await loadDashboardData('user-abc')
-      // activeDaysLast7=1 -> consistency score improves over baseline
-      expect(result.compass.score).toBeGreaterThan(35)
+      expect(result.compass.gradeLabel).toBe('B')
     })
 
-    it('levelLabel is consistent with score range', async () => {
+    it('gradeLabel is consistent with score (mobile _gradeFor thresholds)', async () => {
       const result = await loadDashboardData('user-abc')
-      const { score, levelLabel } = result.compass
-      if (score >= 80)       expect(levelLabel).toBe('Strong Momentum')
-      else if (score >= 60)  expect(levelLabel).toBe('On Track')
-      else if (score >= 40)  expect(levelLabel).toBe('Building Rhythm')
-      else                   expect(levelLabel).toBe('Getting Started')
+      const { score, gradeLabel } = result.compass
+      if (score >= 90)       expect(gradeLabel).toBe('A')
+      else if (score >= 85)  expect(gradeLabel).toBe('A-')
+      else if (score >= 80)  expect(gradeLabel).toBe('B+')
+      else if (score >= 70)  expect(gradeLabel).toBe('B')
+      else if (score >= 60)  expect(gradeLabel).toBe('C')
+      else if (score >= 50)  expect(gradeLabel).toBe('D')
+      else                   expect(gradeLabel).toBe('NA')
     })
 
-    it('pillarScores object has all 5 pillars', async () => {
+    it('pillarScores object has all 5 v2 pillars', async () => {
       const result = await loadDashboardData('user-abc')
-      expect(result.compass.pillarScores).toHaveProperty('goalPace')
+      expect(result.compass.pillarScores).toHaveProperty('pace')
+      expect(result.compass.pillarScores).toHaveProperty('hourly')
       expect(result.compass.pillarScores).toHaveProperty('consistency')
       expect(result.compass.pillarScores).toHaveProperty('expenses')
-      expect(result.compass.pillarScores).toHaveProperty('modules')
-      expect(result.compass.pillarScores).toHaveProperty('activity')
+      expect(result.compass.pillarScores).toHaveProperty('readiness')
     })
 
-    it('uses module count from workspace_preferences', async () => {
-      ;(createServiceClient as Mock).mockReturnValue(mockClient({
-        ...EMPTY,
-        workspace_preferences: {
-          data: {
-            enabled_modules_json: ['rideshare', 'delivery', 'freelance'],
-            primary_modules_json: [],
-          },
-          error: null,
-        },
-      }))
-
+    it('hourly pillar is always 70 (WorkHub fallback, no Supabase equivalent)', async () => {
       const result = await loadDashboardData('user-abc')
-      // modules(3) = 90, higher than baseline modules(0) = 30
-      expect(result.compass.pillarScores.modules).toBe(90)
+      expect(result.compass.pillarScores.hourly).toBe(70)
     })
 
-    it('uses goal progress for pace pillar', async () => {
+    it('pace pillar is 70 when no active goal (no-data fallback)', async () => {
+      const result = await loadDashboardData('user-abc')
+      expect(result.compass.pillarScores.pace).toBe(70)
+    })
+
+    it('pace pillar is 95 when goal is fully achieved (current >= target)', async () => {
       ;(createServiceClient as Mock).mockReturnValue(mockClient({
         ...EMPTY,
         goal_plans: {
@@ -1053,8 +1041,36 @@ describe('loadDashboardData', () => {
       }))
 
       const result = await loadDashboardData('user-abc')
-      // goalProgressPct = 100 -> calcPaceScore(100) = 100
-      expect(result.compass.pillarScores.goalPace).toBe(100)
+      // current_amount == target_amount -> actualFrac >= 1.0 -> 'ahead' -> pace=95
+      expect(result.compass.pillarScores.pace).toBe(95)
+    })
+
+    it('readiness pillar uses tax_reports_profile for setup signal', async () => {
+      ;(createServiceClient as Mock).mockReturnValue(mockClient({
+        ...EMPTY,
+        tax_reports_profile: {
+          data: { ato_setup_completed: true, manual_setup_completed: false, tax_disabled: false },
+          error: null,
+        },
+      }))
+
+      const result = await loadDashboardData('user-abc')
+      // reportSetupAcknowledged=true -> contributes +25 to readiness score
+      // but no income/expenses this week -> score = 0 + 0 + 0 + 25 = 25
+      // (not no-data fallback because reportSetupAcknowledged=true)
+      expect(result.compass.pillarScores.readiness).toBe(25)
+    })
+
+    it('expenses pillar is 90 when week expenses are very low relative to income', async () => {
+      ;(createServiceClient as Mock).mockReturnValue(mockClient({
+        ...EMPTY,
+        income_entries:  { data: [incRow({ id: 'i1', gross_amount: 1000 })], error: null },
+        expense_entries: { data: [expRow({ id: 'e1', amount: 50 })], error: null },
+      }))
+
+      const result = await loadDashboardData('user-abc')
+      // weekIncome=1000, weekExpenses=50, ratio=0.05 < 0.15 -> 90
+      expect(result.compass.pillarScores.expenses).toBe(90)
     })
   })
 })

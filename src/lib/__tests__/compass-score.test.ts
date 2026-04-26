@@ -1,341 +1,418 @@
 /**
- * Unit tests for src/lib/compass-score.ts
+ * Tests for compass-score.ts v2.
  *
- * Covers all exported pure functions independently, then verifies the
- * composite computeCompassScore output for representative inputs.
+ * Verifies each pillar calculator independently, then verifies the composite
+ * computeCompassScore() -- including the critical no-data fallback (score=70).
  */
 import { describe, it, expect } from 'vitest'
 import {
   calcPaceScore,
+  calcHourlyScore,
   calcConsistencyScore,
   calcExpensesScore,
-  calcModulesScore,
-  calcActivityScore,
-  scoreToLevelLabel,
+  calcReadinessScore,
+  scoreToGradeLabel,
   scoreToLevelColor,
   computeCompassScore,
 } from '../compass-score'
+import type { CompassInput } from '../compass-score'
 
-// ─── calcPaceScore ────────────────────────────────────────────────────────────
+// Helper: zeroed CompassInput -- all no-data state
+const ZERO_INPUT: CompassInput = {
+  weekIncome:              0,
+  weekExpenses:            0,
+  weekActiveDays:          0,
+  weekDailyAmounts:        [],
+  hasAnyHistory:           false,
+  reportSetupAcknowledged: false,
+  categoryCoverage:        0,
+  weekExpenseCount:        0,
+  goalPaceStatus:          null,
+}
 
+// ---------------------------------------------------------------------------
+// calcPaceScore
+// ---------------------------------------------------------------------------
 describe('calcPaceScore', () => {
-  it('returns 50 (neutral) when no goal is set (null)', () => {
-    expect(calcPaceScore(null)).toBe(50)
+  it('returns 70 for null (no active goal -- mobile no-forecast fallback)', () => {
+    expect(calcPaceScore(null)).toBe(70)
   })
 
-  it('returns 100 at exactly 100% progress', () => {
-    expect(calcPaceScore(100)).toBe(100)
+  it('returns 95 for ahead', () => {
+    expect(calcPaceScore('ahead')).toBe(95)
   })
 
-  it('returns 100 when progress exceeds 100%', () => {
-    expect(calcPaceScore(120)).toBe(100)
+  it('returns 80 for onPace', () => {
+    expect(calcPaceScore('onPace')).toBe(80)
   })
 
-  it('returns 90 at 80% progress', () => {
-    expect(calcPaceScore(80)).toBe(90)
-  })
-
-  it('returns 75 at 60% progress', () => {
-    expect(calcPaceScore(60)).toBe(75)
-  })
-
-  it('returns 60 at 40% progress', () => {
-    expect(calcPaceScore(40)).toBe(60)
-  })
-
-  it('returns 45 at 20% progress', () => {
-    expect(calcPaceScore(20)).toBe(45)
-  })
-
-  it('returns 30 below 20% progress', () => {
-    expect(calcPaceScore(10)).toBe(30)
-    expect(calcPaceScore(0)).toBe(30)
+  it('returns 50 for behind', () => {
+    expect(calcPaceScore('behind')).toBe(50)
   })
 })
 
-// ─── calcConsistencyScore ─────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// calcHourlyScore
+// ---------------------------------------------------------------------------
+describe('calcHourlyScore', () => {
+  it('always returns 70 (constant fallback -- no Supabase WorkHub data)', () => {
+    expect(calcHourlyScore()).toBe(70)
+  })
+})
 
+// ---------------------------------------------------------------------------
+// calcConsistencyScore
+// ---------------------------------------------------------------------------
 describe('calcConsistencyScore', () => {
-  it('returns 15 for 0 active days', () => {
-    expect(calcConsistencyScore(0)).toBe(15)
+  it('returns 70 when weekActiveDays is 0 (no-data fallback)', () => {
+    expect(calcConsistencyScore(0, [])).toBe(70)
   })
 
-  it('returns 35 for 1 active day', () => {
-    expect(calcConsistencyScore(1)).toBe(35)
+  it('returns 70 when weekActiveDays is 0 regardless of amounts', () => {
+    expect(calcConsistencyScore(0, [100, 200])).toBe(70)
   })
 
-  it('returns 50 for 2 active days', () => {
-    expect(calcConsistencyScore(2)).toBe(50)
+  it('floors at 30 for a single active day', () => {
+    // coverage = 1/7 ~= 14.3, dispersion = 0 (single point) -> raw ~14.3 -> clamp to 30
+    expect(calcConsistencyScore(1, [500])).toBe(30)
   })
 
-  it('returns 70 for 3 active days', () => {
-    expect(calcConsistencyScore(3)).toBe(70)
+  it('floors at 30 for 2 active days with equal amounts (no variance penalty)', () => {
+    // coverage = 2/7 ~= 28.6, dispersion = 0 -> raw ~28.6 -> clamp to 30
+    expect(calcConsistencyScore(2, [400, 400])).toBe(30)
   })
 
-  it('returns 70 for 4 active days (below 5-day threshold)', () => {
-    expect(calcConsistencyScore(4)).toBe(70)
+  it('gives ~43 for 3 days equal amounts (no variance)', () => {
+    // coverage = 3/7 ~= 42.9, dispersion = 0 -> raw ~42.9 -> round to 43
+    expect(calcConsistencyScore(3, [300, 300, 300])).toBe(43)
   })
 
-  it('returns 90 for 5 or more active days', () => {
-    expect(calcConsistencyScore(5)).toBe(90)
-    expect(calcConsistencyScore(7)).toBe(90)
+  it('gives 100 for 7 active days with equal amounts', () => {
+    // coverage = 7/7 = 1.0, dispersion = 0 -> raw = 100
+    expect(calcConsistencyScore(7, [200, 200, 200, 200, 200, 200, 200])).toBe(100)
+  })
+
+  it('applies variance penalty correctly', () => {
+    // 5 active days, amounts [100, 100, 100, 100, 400]
+    // coverage = 5/7 ~= 71.4
+    // mean = 160, stdDev = sqrt((3600*4+57600)/5) = sqrt(72000/5+... wait
+    // mean = (100+100+100+100+400)/5 = 800/5 = 160
+    // variance = ((60^2*4) + (240^2)) / 5 = (14400+57600)/5 = 72000/5 = 14400
+    // stdDev = 120
+    // dispersion = min(2, 120/160) = min(2, 0.75) = 0.75
+    // raw = 71.4 - (0.75/2)*20 = 71.4 - 7.5 = 63.9 -> 64
+    const score = calcConsistencyScore(5, [100, 100, 100, 100, 400])
+    expect(score).toBe(64)
+  })
+
+  it('clamps dispersion at 2 for extreme variance', () => {
+    // 2 active days: [1, 1000]
+    // coverage = 2/7 ~= 28.6
+    // mean = 500.5, stdDev ~= 499.5, dispersion = min(2, 499.5/500.5) ~= min(2, 0.998) = 0.998
+    // raw = 28.6 - (0.998/2)*20 = 28.6 - 9.98 = 18.6 -> clamp to 30
+    expect(calcConsistencyScore(2, [1, 1000])).toBe(30)
   })
 })
 
-// ─── calcExpensesScore ────────────────────────────────────────────────────────
-
+// ---------------------------------------------------------------------------
+// calcExpensesScore
+// ---------------------------------------------------------------------------
 describe('calcExpensesScore', () => {
-  it('returns 50 (neutral) when income is 0', () => {
-    expect(calcExpensesScore(0, 0)).toBe(50)
-    expect(calcExpensesScore(0, 500)).toBe(50)
+  it('returns 70 when weekIncome is 0 (no-data fallback)', () => {
+    expect(calcExpensesScore(0, 0)).toBe(70)
   })
 
-  it('returns 90 when expense ratio is below 15%', () => {
-    expect(calcExpensesScore(1000, 100)).toBe(90)  // 10%
-    expect(calcExpensesScore(1000, 0)).toBe(90)    // 0%
+  it('returns 70 when weekIncome is negative', () => {
+    expect(calcExpensesScore(-100, 0)).toBe(70)
   })
 
-  it('returns 75 when expense ratio is 15-29%', () => {
-    expect(calcExpensesScore(1000, 200)).toBe(75)  // 20%
-    expect(calcExpensesScore(1000, 290)).toBe(75)  // 29%
+  it('returns 90 for ratio < 0.15', () => {
+    expect(calcExpensesScore(1000, 100)).toBe(90)   // 10%
+    expect(calcExpensesScore(1000, 149)).toBe(90)   // 14.9%
   })
 
-  it('returns 55 when expense ratio is 30-49%', () => {
-    expect(calcExpensesScore(1000, 400)).toBe(55)  // 40%
+  it('returns 75 for ratio 0.15-0.30', () => {
+    expect(calcExpensesScore(1000, 150)).toBe(75)   // 15%
+    expect(calcExpensesScore(1000, 299)).toBe(75)   // 29.9%
   })
 
-  it('returns 35 when expense ratio is 50-74%', () => {
-    expect(calcExpensesScore(1000, 600)).toBe(35)  // 60%
+  it('returns 55 for ratio 0.30-0.50', () => {
+    expect(calcExpensesScore(1000, 300)).toBe(55)   // 30%
+    expect(calcExpensesScore(1000, 499)).toBe(55)   // 49.9%
   })
 
-  it('returns 20 when expense ratio is 75% or more', () => {
-    expect(calcExpensesScore(1000, 800)).toBe(20)   // 80%
-    expect(calcExpensesScore(1000, 1500)).toBe(20)  // 150%
-  })
-})
-
-// ─── calcModulesScore ─────────────────────────────────────────────────────────
-
-describe('calcModulesScore', () => {
-  it('returns 30 for 0 active modules', () => {
-    expect(calcModulesScore(0)).toBe(30)
-  })
-
-  it('returns 55 for 1 module', () => {
-    expect(calcModulesScore(1)).toBe(55)
-  })
-
-  it('returns 75 for 2 modules', () => {
-    expect(calcModulesScore(2)).toBe(75)
-  })
-
-  it('returns 90 for 3 or more modules', () => {
-    expect(calcModulesScore(3)).toBe(90)
-    expect(calcModulesScore(5)).toBe(90)
+  it('returns 35 for ratio >= 0.50', () => {
+    expect(calcExpensesScore(1000, 500)).toBe(35)   // 50%
+    expect(calcExpensesScore(1000, 900)).toBe(35)   // 90%
   })
 })
 
-// ─── calcActivityScore ────────────────────────────────────────────────────────
-
-describe('calcActivityScore', () => {
-  it('returns 25 for 0 XP', () => {
-    expect(calcActivityScore(0)).toBe(25)
+// ---------------------------------------------------------------------------
+// calcReadinessScore
+// ---------------------------------------------------------------------------
+describe('calcReadinessScore', () => {
+  it('returns 70 when all signals are absent (no-data fallback)', () => {
+    expect(calcReadinessScore(false, false, false, false, 0)).toBe(70)
   })
 
-  it('returns 40 for 1-99 XP', () => {
-    expect(calcActivityScore(1)).toBe(40)
-    expect(calcActivityScore(50)).toBe(40)
-    expect(calcActivityScore(99)).toBe(40)
+  it('returns 30 floor when score=0 but hasAnyHistory', () => {
+    expect(calcReadinessScore(false, false, true, false, 0)).toBe(30)
   })
 
-  it('returns 55 for 100-499 XP', () => {
-    expect(calcActivityScore(100)).toBe(55)
-    expect(calcActivityScore(499)).toBe(55)
+  it('adds 25 for hasWeekIncome', () => {
+    expect(calcReadinessScore(true, false, false, false, 0)).toBe(25)
   })
 
-  it('returns 75 for 500-999 XP', () => {
-    expect(calcActivityScore(500)).toBe(75)
-    expect(calcActivityScore(999)).toBe(75)
+  it('adds 25 for hasWeekExpenses', () => {
+    expect(calcReadinessScore(false, true, false, false, 0)).toBe(25)
   })
 
-  it('returns 90 for 1000+ XP', () => {
-    expect(calcActivityScore(1000)).toBe(90)
-    expect(calcActivityScore(5000)).toBe(90)
-  })
-})
-
-// ─── scoreToLevelLabel ────────────────────────────────────────────────────────
-
-describe('scoreToLevelLabel', () => {
-  it('"Getting Started" for scores 0-39', () => {
-    expect(scoreToLevelLabel(0)).toBe('Getting Started')
-    expect(scoreToLevelLabel(39)).toBe('Getting Started')
+  it('adds 25 for reportSetupAcknowledged', () => {
+    expect(calcReadinessScore(false, false, false, true, 0)).toBe(25)
   })
 
-  it('"Building Rhythm" for scores 40-59', () => {
-    expect(scoreToLevelLabel(40)).toBe('Building Rhythm')
-    expect(scoreToLevelLabel(59)).toBe('Building Rhythm')
+  it('returns 70 (no-data fallback) even when categoryCoverage is set but all booleans are false', () => {
+    // No-data check only tests the 4 boolean flags, not categoryCoverage.
+    // With all booleans false -> falls into no-data fallback -> 70.
+    expect(calcReadinessScore(false, false, false, false, 0.8)).toBe(70)
   })
 
-  it('"On Track" for scores 60-79', () => {
-    expect(scoreToLevelLabel(60)).toBe('On Track')
-    expect(scoreToLevelLabel(79)).toBe('On Track')
+  it('adds categoryCoverage x 25 rounded when some signals are present', () => {
+    // hasWeekIncome=true, so no-data check does NOT trigger.
+    // score = 25 (income) + round(0.8 * 25) = 25 + 20 = 45
+    expect(calcReadinessScore(true, false, false, false, 0.8)).toBe(45)
   })
 
-  it('"Strong Momentum" for scores 80-100', () => {
-    expect(scoreToLevelLabel(80)).toBe('Strong Momentum')
-    expect(scoreToLevelLabel(100)).toBe('Strong Momentum')
+  it('full score = 100 with all signals + full coverage', () => {
+    expect(calcReadinessScore(true, true, true, true, 1.0)).toBe(100)
+  })
+
+  it('mixed: income + setup + partial coverage', () => {
+    // hasWeekIncome=25, hasWeekExpenses=0, reportSetup=25, categoryCoverage=0.6->15 => 65
+    expect(calcReadinessScore(true, false, false, true, 0.6)).toBe(65)
+  })
+
+  it('clamps at 100', () => {
+    expect(calcReadinessScore(true, true, true, true, 1.0)).toBe(100)
   })
 })
 
-// ─── scoreToLevelColor ────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// scoreToGradeLabel
+// ---------------------------------------------------------------------------
+describe('scoreToGradeLabel', () => {
+  it('returns A for score >= 90', () => {
+    expect(scoreToGradeLabel(90)).toBe('A')
+    expect(scoreToGradeLabel(100)).toBe('A')
+    expect(scoreToGradeLabel(95)).toBe('A')
+  })
 
+  it('returns A- for 85-89', () => {
+    expect(scoreToGradeLabel(85)).toBe('A-')
+    expect(scoreToGradeLabel(89)).toBe('A-')
+  })
+
+  it('returns B+ for 80-84', () => {
+    expect(scoreToGradeLabel(80)).toBe('B+')
+    expect(scoreToGradeLabel(84)).toBe('B+')
+  })
+
+  it('returns B for 70-79', () => {
+    expect(scoreToGradeLabel(70)).toBe('B')
+    expect(scoreToGradeLabel(79)).toBe('B')
+  })
+
+  it('returns C for 60-69', () => {
+    expect(scoreToGradeLabel(60)).toBe('C')
+    expect(scoreToGradeLabel(69)).toBe('C')
+  })
+
+  it('returns D for 50-59', () => {
+    expect(scoreToGradeLabel(50)).toBe('D')
+    expect(scoreToGradeLabel(59)).toBe('D')
+  })
+
+  it('returns NA for < 50', () => {
+    expect(scoreToGradeLabel(49)).toBe('NA')
+    expect(scoreToGradeLabel(0)).toBe('NA')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// scoreToLevelColor
+// ---------------------------------------------------------------------------
 describe('scoreToLevelColor', () => {
-  it('returns amber (#F59E6A) for score 0-39', () => {
-    expect(scoreToLevelColor(0)).toBe('#F59E6A')
-    expect(scoreToLevelColor(39)).toBe('#F59E6A')
+  it('returns success green for >= 85', () => {
+    expect(scoreToLevelColor(85)).toBe('#55CC94')
+    expect(scoreToLevelColor(100)).toBe('#55CC94')
   })
 
-  it('returns blue (#60C8F5) for score 40-59', () => {
-    expect(scoreToLevelColor(40)).toBe('#60C8F5')
-    expect(scoreToLevelColor(59)).toBe('#60C8F5')
+  it('returns secondary teal for 70-84', () => {
+    expect(scoreToLevelColor(70)).toBe('#3DD6B0')
+    expect(scoreToLevelColor(84)).toBe('#3DD6B0')
   })
 
-  it('returns light teal (#5EE4C0) for score 60-79', () => {
-    expect(scoreToLevelColor(60)).toBe('#5EE4C0')
-    expect(scoreToLevelColor(79)).toBe('#5EE4C0')
+  it('returns warning amber for 50-69', () => {
+    expect(scoreToLevelColor(50)).toBe('#F2AA4C')
+    expect(scoreToLevelColor(69)).toBe('#F2AA4C')
   })
 
-  it('returns teal (#3DD6B0) for score 80+', () => {
-    expect(scoreToLevelColor(80)).toBe('#3DD6B0')
-    expect(scoreToLevelColor(100)).toBe('#3DD6B0')
+  it('returns danger red for < 50', () => {
+    expect(scoreToLevelColor(49)).toBe('#FF5C7A')
+    expect(scoreToLevelColor(0)).toBe('#FF5C7A')
   })
 })
 
-// ─── computeCompassScore (composite) ─────────────────────────────────────────
-
-describe('computeCompassScore', () => {
-  it('returns a valid CompassData shape for zero inputs', () => {
-    const result = computeCompassScore({
-      totalIncome: 0, totalExpenses: 0, modulesCount: 0,
-      goalProgressPct: null, totalXp: 0, activeDaysLast7: 0,
-    })
-
-    expect(result).toHaveProperty('score')
-    expect(result).toHaveProperty('levelLabel')
-    expect(result).toHaveProperty('levelColor')
-    expect(result).toHaveProperty('summary')
-    expect(result).toHaveProperty('positiveSignals')
-    expect(result).toHaveProperty('improvementSignals')
-    expect(result).toHaveProperty('pillarScores')
-    expect(typeof result.score).toBe('number')
-    expect(result.score).toBeGreaterThanOrEqual(0)
-    expect(result.score).toBeLessThanOrEqual(100)
+// ---------------------------------------------------------------------------
+// computeCompassScore -- critical: no-data fallback must be 70
+// ---------------------------------------------------------------------------
+describe('computeCompassScore -- no-data fallback', () => {
+  it('returns score=70 when all inputs are zeroed (matches mobile fallback exactly)', () => {
+    const result = computeCompassScore(ZERO_INPUT)
+    expect(result.score).toBe(70)
   })
 
-  it('produces score of 35 for all-zero inputs', () => {
-    // goalPace(null)=50 * 0.25 = 12.5
-    // consistency(0)=15 * 0.25 = 3.75
-    // expenses(0,0)=50 * 0.20 = 10
-    // modules(0)=30  * 0.15 = 4.5
-    // activity(0)=25 * 0.15 = 3.75
-    // total = 34.5 → Math.round = 35
-    const result = computeCompassScore({
-      totalIncome: 0, totalExpenses: 0, modulesCount: 0,
-      goalProgressPct: null, totalXp: 0, activeDaysLast7: 0,
-    })
-    expect(result.score).toBe(35)
+  it('returns gradeLabel=B for score=70', () => {
+    const result = computeCompassScore(ZERO_INPUT)
+    expect(result.gradeLabel).toBe('B')
   })
 
-  it('produces score of 93 for an excellent profile', () => {
-    // goalPace(100)=100, consistency(7)=90, expenses(1000,50)=90,
-    // modules(3)=90, activity(2000)=90
-    // = 100*0.25 + 90*0.25 + 90*0.20 + 90*0.15 + 90*0.15
-    // = 25 + 22.5 + 18 + 13.5 + 13.5 = 92.5 → 93
-    const result = computeCompassScore({
-      totalIncome: 1000, totalExpenses: 50, modulesCount: 3,
-      goalProgressPct: 100, totalXp: 2000, activeDaysLast7: 7,
-    })
-    expect(result.score).toBe(93)
-    expect(result.levelLabel).toBe('Strong Momentum')
+  it('returns secondary teal color for score=70', () => {
+    const result = computeCompassScore(ZERO_INPUT)
     expect(result.levelColor).toBe('#3DD6B0')
   })
 
-  it('levelLabel and levelColor match zero-input score', () => {
-    const result = computeCompassScore({
-      totalIncome: 0, totalExpenses: 0, modulesCount: 0,
-      goalProgressPct: null, totalXp: 0, activeDaysLast7: 0,
-    })
-    // score = 35 → Getting Started, amber
-    expect(result.levelLabel).toBe('Getting Started')
-    expect(result.levelColor).toBe('#F59E6A')
+  it('returns no-data summary when weekIncome=0 and !hasAnyHistory', () => {
+    const result = computeCompassScore(ZERO_INPUT)
+    expect(result.summary).toContain('Start logging income')
   })
 
-  it('includes correct pillar scores for a mid-range input', () => {
-    const result = computeCompassScore({
-      totalIncome: 500, totalExpenses: 100, modulesCount: 2,
-      goalProgressPct: 50, totalXp: 300, activeDaysLast7: 3,
-    })
-    expect(result.pillarScores).toEqual({
-      goalPace:    60,  // calcPaceScore(50) -- >=40 branch
-      consistency: 70,  // calcConsistencyScore(3) -- >=3 branch
-      expenses:    75,  // calcExpensesScore(500,100) -- ratio=0.2 <0.30 branch
-      modules:     75,  // calcModulesScore(2) -- >=2 branch
-      activity:    55,  // calcActivityScore(300) -- >=100 branch
-    })
+  it('includes improvement signal to log income when weekIncome=0', () => {
+    const result = computeCompassScore(ZERO_INPUT)
+    expect(result.improvementSignals.some(s => s.includes('No income logged'))).toBe(true)
   })
 
-  it('returns starter summary when no income and no activity logged', () => {
-    const result = computeCompassScore({
-      totalIncome: 0, totalExpenses: 0, modulesCount: 0,
-      goalProgressPct: null, totalXp: 0, activeDaysLast7: 0,
-    })
-    expect(result.summary).toBe('Start logging income in the app to build your Compass score.')
+  it('all individual pillars are 70 for zeroed input', () => {
+    const result = computeCompassScore(ZERO_INPUT)
+    expect(result.pillarScores.pace).toBe(70)
+    expect(result.pillarScores.hourly).toBe(70)
+    expect(result.pillarScores.consistency).toBe(70)
+    expect(result.pillarScores.expenses).toBe(70)
+    expect(result.pillarScores.readiness).toBe(70)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// computeCompassScore -- goal pace integration
+// ---------------------------------------------------------------------------
+describe('computeCompassScore -- goal pace', () => {
+  it('ahead goal raises pace pillar to 95', () => {
+    const result = computeCompassScore({ ...ZERO_INPUT, goalPaceStatus: 'ahead' })
+    expect(result.pillarScores.pace).toBe(95)
   })
 
-  it('returns excellent summary when score >= 80', () => {
-    const result = computeCompassScore({
-      totalIncome: 1000, totalExpenses: 50, modulesCount: 3,
-      goalProgressPct: 100, totalXp: 2000, activeDaysLast7: 7,
-    })
-    expect(result.summary).toContain('Excellent momentum')
+  it('behind goal lowers pace pillar to 50', () => {
+    const result = computeCompassScore({ ...ZERO_INPUT, goalPaceStatus: 'behind' })
+    expect(result.pillarScores.pace).toBe(50)
   })
 
-  it('positiveSignals and improvementSignals are always arrays', () => {
-    const result = computeCompassScore({
-      totalIncome: 100, totalExpenses: 10, modulesCount: 1,
-      goalProgressPct: null, totalXp: 50, activeDaysLast7: 1,
-    })
-    expect(Array.isArray(result.positiveSignals)).toBe(true)
-    expect(Array.isArray(result.improvementSignals)).toBe(true)
+  it('null goal returns neutral pace 70', () => {
+    const result = computeCompassScore({ ...ZERO_INPUT, goalPaceStatus: null })
+    expect(result.pillarScores.pace).toBe(70)
   })
+})
 
-  it('improvementSignals suggests setting a goal when goalProgressPct is null', () => {
-    const result = computeCompassScore({
-      totalIncome: 0, totalExpenses: 0, modulesCount: 0,
-      goalProgressPct: null, totalXp: 0, activeDaysLast7: 0,
-    })
-    expect(result.improvementSignals.some(s => s.toLowerCase().includes('goal'))).toBe(true)
-  })
-
-  it('score is always an integer', () => {
-    const inputs = [
-      { totalIncome: 0, totalExpenses: 0, modulesCount: 0, goalProgressPct: null, totalXp: 0, activeDaysLast7: 0 },
-      { totalIncome: 333, totalExpenses: 111, modulesCount: 1, goalProgressPct: 33, totalXp: 150, activeDaysLast7: 2 },
-      { totalIncome: 1000, totalExpenses: 500, modulesCount: 2, goalProgressPct: 75, totalXp: 600, activeDaysLast7: 4 },
-    ]
-    for (const input of inputs) {
-      expect(Number.isInteger(computeCompassScore(input).score)).toBe(true)
+// ---------------------------------------------------------------------------
+// computeCompassScore -- composite score verification
+// ---------------------------------------------------------------------------
+describe('computeCompassScore -- composite score', () => {
+  it('full data: all pillars at max produces score=90 (hourly capped at 70)', () => {
+    // Best case: ahead goal (95), hourly=70 (constant), 7 active days equal (100),
+    // very low expenses (90), full readiness (100)
+    // raw = 95*0.25 + 70*0.20 + 100*0.20 + 90*0.20 + 100*0.15
+    // = 23.75 + 14 + 20 + 18 + 15 = 90.75 -> 91
+    const input: CompassInput = {
+      weekIncome:              1000,
+      weekExpenses:            50,   // 5% ratio -> 90
+      weekActiveDays:          7,
+      weekDailyAmounts:        [143, 143, 143, 143, 143, 143, 142],
+      hasAnyHistory:           true,
+      reportSetupAcknowledged: true,
+      categoryCoverage:        1.0,
+      weekExpenseCount:        3,
+      goalPaceStatus:          'ahead',
     }
+    const result = computeCompassScore(input)
+    expect(result.score).toBe(91)
+    expect(result.gradeLabel).toBe('A')
+    expect(result.levelColor).toBe('#55CC94')
   })
 
-  it('score is clamped to 0-100', () => {
-    // All-max input
-    const high = computeCompassScore({
-      totalIncome: 999999, totalExpenses: 0, modulesCount: 10,
-      goalProgressPct: 100, totalXp: 999999, activeDaysLast7: 7,
-    })
-    expect(high.score).toBeLessThanOrEqual(100)
-    expect(high.score).toBeGreaterThanOrEqual(0)
+  it('partial data: onPace goal, 3 active days, low expenses, income only readiness', () => {
+    // pace=80, hourly=70, consistency~=43, expenses=90, readiness=25 (income only)
+    // weekExpenseCount=0 -> hasWeekExpenses=false -> readiness score = 25 (income only)
+    // raw = 80*0.25 + 70*0.20 + 43*0.20 + 90*0.20 + 25*0.15
+    // = 20 + 14 + 8.6 + 18 + 3.75 = 64.35 -> 64
+    const input: CompassInput = {
+      weekIncome:              900,
+      weekExpenses:            50,
+      weekActiveDays:          3,
+      weekDailyAmounts:        [300, 300, 300],
+      hasAnyHistory:           false,
+      reportSetupAcknowledged: false,
+      categoryCoverage:        0,
+      weekExpenseCount:        0,   // no expense entries -> hasWeekExpenses=false
+      goalPaceStatus:          'onPace',
+    }
+    const result = computeCompassScore(input)
+    expect(result.score).toBe(64)
+    expect(result.gradeLabel).toBe('C')
+  })
+
+  it('guard: NaN input is treated as 0', () => {
+    const input: CompassInput = {
+      weekIncome:              NaN,
+      weekExpenses:            NaN,
+      weekActiveDays:          NaN,
+      weekDailyAmounts:        [NaN, 100],
+      hasAnyHistory:           false,
+      reportSetupAcknowledged: false,
+      categoryCoverage:        NaN,
+      weekExpenseCount:        NaN,
+      goalPaceStatus:          null,
+    }
+    const result = computeCompassScore(input)
+    expect(Number.isFinite(result.score)).toBe(true)
+    expect(result.score).toBe(70)
+  })
+
+  it('guard: undefined weekDailyAmounts is handled gracefully', () => {
+    const input = { ...ZERO_INPUT, weekDailyAmounts: undefined as unknown as number[] }
+    expect(() => computeCompassScore(input)).not.toThrow()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// computeCompassScore -- positive signals
+// ---------------------------------------------------------------------------
+describe('computeCompassScore -- signals', () => {
+  it('includes "ahead of schedule" signal when goalPaceStatus is ahead', () => {
+    const result = computeCompassScore({ ...ZERO_INPUT, goalPaceStatus: 'ahead', weekIncome: 500, weekActiveDays: 1, weekDailyAmounts: [500] })
+    expect(result.positiveSignals.some(s => s.includes('ahead of schedule'))).toBe(true)
+  })
+
+  it('includes active-days signal when weekActiveDays >= 3', () => {
+    const result = computeCompassScore({ ...ZERO_INPUT, weekIncome: 300, weekActiveDays: 4, weekDailyAmounts: [75, 75, 75, 75] })
+    expect(result.positiveSignals.some(s => s.includes('4 income days'))).toBe(true)
+  })
+
+  it('includes "Set a monthly income goal" improvement when goalPaceStatus is null', () => {
+    const result = computeCompassScore(ZERO_INPUT)
+    expect(result.improvementSignals.some(s => s.includes('Set a monthly income goal'))).toBe(true)
+  })
+
+  it('includes "Complete tax setup" improvement when reportSetupAcknowledged is false', () => {
+    const result = computeCompassScore({ ...ZERO_INPUT, weekIncome: 500 })
+    expect(result.improvementSignals.some(s => s.includes('Complete tax setup'))).toBe(true)
   })
 })
