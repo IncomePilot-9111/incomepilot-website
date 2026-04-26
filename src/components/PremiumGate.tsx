@@ -1,39 +1,47 @@
 /**
  * PremiumGate -- Server Component.
  *
- * Phase 1 dashboard: reads premium status from DB, then conditionally
- * renders the full dashboard (summary cards, calendar preview, export
- * centre) or a locked preview with an upgrade prompt.
+ * Reads premium status from premium_entitlements via the service role,
+ * then renders either the full dashboard or a locked preview.
  *
- * All data loading is server-side -- no loading flicker, no client
- * secrets exposed.
+ * Premium dashboard sections (Phase 1):
+ *   1. Pro status banner
+ *   2. Compass score hero card
+ *   3. Summary cards (income / expenses / net / modules)
+ *   4. Calendar + Goals/XP row
+ *   5. Trend chart + Module breakdown row
+ *   6. Recent activity feed
+ *   7. Export centre (placeholder -- clearly labelled "Coming soon")
+ *
+ * Locked state (non-premium):
+ *   Upgrade CTA + blurred/locked preview of all sections + refresh button
  */
 import { createServiceClient } from '@/lib/supabase/service'
 import { loadDashboardData }   from '@/lib/dashboard-data'
-import type { DashboardData, CalendarEvent } from '@/lib/dashboard-data'
+import type { DashboardData, CalendarEvent, GoalData } from '@/lib/dashboard-data'
+
+import CompassHero     from '@/components/dashboard/CompassHero'
+import EarningsTrend   from '@/components/dashboard/EarningsTrend'
+import RecentActivity  from '@/components/dashboard/RecentActivity'
+import ModuleBreakdown from '@/components/dashboard/ModuleBreakdown'
 import PremiumRefreshButton from './PremiumRefreshButton'
 
 interface Props {
   userId: string
 }
 
-// ─── Currency formatter ───────────────────────────────────────────────────────
+// ─── Currency formatter (shared by sub-components below) ─────────────────────
 
 function formatAUD(amount: number): string {
   return new Intl.NumberFormat('en-AU', {
-    style:                 'currency',
-    currency:              'AUD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    style: 'currency', currency: 'AUD',
+    minimumFractionDigits: 2, maximumFractionDigits: 2,
   }).format(amount)
 }
 
-function formatEventDate(isoString: string): string {
-  return new Date(isoString).toLocaleDateString('en-AU', {
-    weekday: 'short',
-    day:     'numeric',
-    month:   'short',
-  })
+function hexToRgbStr(hex: string): string {
+  const h = hex.replace('#', '')
+  return `${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)}`
 }
 
 // ─── Gate ─────────────────────────────────────────────────────────────────────
@@ -59,14 +67,8 @@ export default async function PremiumGate({ userId }: Props) {
   }
 
   if (isPremium) {
-    const dashData = await loadDashboardData(userId)
-    return (
-      <PremiumDashboard
-        expiresAt={expiresAt}
-        entitlement={entitlement}
-        data={dashData}
-      />
-    )
+    const data = await loadDashboardData(userId)
+    return <PremiumDashboard expiresAt={expiresAt} entitlement={entitlement} data={data} />
   }
 
   return <LockedDashboard />
@@ -84,18 +86,16 @@ function PremiumDashboard({
   data:        DashboardData
 }) {
   const expiryLabel = expiresAt
-    ? new Date(expiresAt).toLocaleDateString('en-AU', {
-        year: 'numeric', month: 'long', day: 'numeric',
-      })
+    ? new Date(expiresAt).toLocaleDateString('en-AU', { year: 'numeric', month: 'long', day: 'numeric' })
     : null
 
   return (
     <div className="space-y-5">
 
-      {/* ── Pro status banner ─────────────────────────────────────────── */}
+      {/* 1. Pro status banner */}
       <div
         className="glass-surface rounded-2xl p-4 sm:p-5"
-        style={{ border: '1px solid rgba(61,214,176,0.32)', boxShadow: '0 0 24px rgba(61,214,176,0.07)' }}
+        style={{ border: '1px solid rgba(61,214,176,0.32)', boxShadow: '0 0 24px rgba(61,214,176,0.06)' }}
       >
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
@@ -104,7 +104,7 @@ function PremiumDashboard({
               style={{ background: 'rgba(61,214,176,0.15)', border: '1px solid rgba(61,214,176,0.35)' }}
             >
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                <path d="M8 1l1.8 4.1H14l-3.4 2.7 1.3 4.2L8 9.5 4.1 12l1.3-4.2L2 5.1h4.2z" fill="#3DD6B0" />
+                <path d="M8 1l1.8 4.1H14l-3.4 2.7 1.3 4.2L8 9.5 4.1 12l1.3-4.2L2 5.1h4.2z" fill="#3DD6B0"/>
               </svg>
             </div>
             <div>
@@ -120,10 +120,13 @@ function PremiumDashboard({
         </div>
       </div>
 
-      {/* ── Summary cards ─────────────────────────────────────────────── */}
+      {/* 2. Compass score hero */}
+      <CompassHero compass={data.compass} />
+
+      {/* 3. Summary cards */}
       <SummaryCards data={data} />
 
-      {/* ── Calendar + Goals row ──────────────────────────────────────── */}
+      {/* 4. Calendar + Goals/XP row */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
         <div className="lg:col-span-3">
           <CalendarPreview events={data.upcomingEvents} />
@@ -133,7 +136,20 @@ function PremiumDashboard({
         </div>
       </div>
 
-      {/* ── Export centre ─────────────────────────────────────────────── */}
+      {/* 5. Trend chart + Module breakdown row */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+        <div className="lg:col-span-3">
+          <EarningsTrend trend={data.weeklyTrend} />
+        </div>
+        <div className="lg:col-span-2">
+          <ModuleBreakdown breakdown={data.moduleBreakdown} />
+        </div>
+      </div>
+
+      {/* 6. Recent activity */}
+      <RecentActivity activity={data.recentActivity} />
+
+      {/* 7. Export centre */}
       <ExportCentre />
 
     </div>
@@ -144,7 +160,6 @@ function PremiumDashboard({
 
 function SummaryCards({ data }: { data: DashboardData }) {
   const { summary, modules } = data
-
   const netPositive = summary.netIncome >= 0
 
   const cards = [
@@ -171,7 +186,7 @@ function SummaryCards({ data }: { data: DashboardData }) {
     },
     {
       label:    'Active Modules',
-      value:    modules.count > 0 ? String(modules.count) : '0',
+      value:    String(modules.count),
       sub:      modules.count === 1 ? 'platform tracked' : 'platforms tracked',
       accent:   '#A78BFA',
       iconPath: 'M4 6h16M4 12h16M4 18h7',
@@ -181,10 +196,7 @@ function SummaryCards({ data }: { data: DashboardData }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
       {cards.map(({ label, value, sub, accent, iconPath }) => (
-        <div
-          key={label}
-          className="glass-surface rounded-2xl p-4 sm:p-5 flex flex-col gap-3"
-        >
+        <div key={label} className="glass-surface rounded-2xl p-4 sm:p-5 flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <div
               className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -194,33 +206,19 @@ function SummaryCards({ data }: { data: DashboardData }) {
               }}
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d={iconPath} stroke={accent} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                <path d={iconPath} stroke={accent} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
             <p className="text-xs font-semibold text-[#4A7A8A] leading-tight">{label}</p>
           </div>
           <div>
-            <p
-              className="text-xl sm:text-2xl font-bold leading-none"
-              style={{ color: accent }}
-            >
-              {value}
-            </p>
+            <p className="text-xl sm:text-2xl font-bold leading-none" style={{ color: accent }}>{value}</p>
             <p className="text-xs text-[#3E6474] mt-1">{sub}</p>
           </div>
         </div>
       ))}
     </div>
   )
-}
-
-/** Convert 6-char hex to "R,G,B" string for rgba() usage */
-function hexToRgbStr(hex: string): string {
-  const h = hex.replace('#', '')
-  const r = parseInt(h.slice(0, 2), 16)
-  const g = parseInt(h.slice(2, 4), 16)
-  const b = parseInt(h.slice(4, 6), 16)
-  return `${r},${g},${b}`
 }
 
 // ─── Calendar preview ─────────────────────────────────────────────────────────
@@ -232,6 +230,10 @@ const EVENT_TYPE_CONFIG: Record<CalendarEvent['type'], { label: string; color: s
   other:   { label: 'Event',   color: '#8CB4C0' },
 }
 
+function formatEventDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })
+}
+
 function CalendarPreview({ events }: { events: CalendarEvent[] }) {
   return (
     <div className="glass-surface rounded-2xl p-5 h-full flex flex-col">
@@ -241,18 +243,18 @@ function CalendarPreview({ events }: { events: CalendarEvent[] }) {
           className="text-xs font-medium px-2 py-0.5 rounded-full"
           style={{ background: 'rgba(61,214,176,0.10)', color: '#4A7A8A', border: '1px solid rgba(61,214,176,0.15)' }}
         >
-          Next 5
+          Next 8
         </span>
       </div>
 
       {events.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-2 py-8 text-center">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="opacity-30">
-            <rect x="3" y="4" width="18" height="18" rx="2" stroke="#8CB4C0" strokeWidth="1.5" />
-            <path d="M16 2v4M8 2v4M3 10h18" stroke="#8CB4C0" strokeWidth="1.5" strokeLinecap="round" />
+            <rect x="3" y="4" width="18" height="18" rx="2" stroke="#8CB4C0" strokeWidth="1.5"/>
+            <path d="M16 2v4M8 2v4M3 10h18" stroke="#8CB4C0" strokeWidth="1.5" strokeLinecap="round"/>
           </svg>
           <p className="text-sm text-[#4A7A8A]">No upcoming events</p>
-          <p className="text-xs text-[#3E6474]">Use the PolarisPilot app to schedule shifts and bookings</p>
+          <p className="text-xs text-[#3E6474]">Schedule shifts and bookings in the app to see them here</p>
         </div>
       ) : (
         <ul className="flex-1 space-y-2">
@@ -264,10 +266,7 @@ function CalendarPreview({ events }: { events: CalendarEvent[] }) {
                 className="flex items-center gap-3 rounded-xl px-3 py-2.5"
                 style={{ background: 'rgba(255,255,255,0.025)' }}
               >
-                <div
-                  className="w-1.5 h-8 rounded-full flex-shrink-0"
-                  style={{ background: cfg.color }}
-                />
+                <div className="w-1.5 h-8 rounded-full flex-shrink-0" style={{ background: cfg.color }} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-[#C8EDE5] truncate">{event.title}</p>
                   <p className="text-xs text-[#4A7A8A] mt-0.5">{formatEventDate(event.scheduledAt)}</p>
@@ -282,8 +281,8 @@ function CalendarPreview({ events }: { events: CalendarEvent[] }) {
                       className="text-xs px-2 py-0.5 rounded-full"
                       style={{
                         background: `rgba(${hexToRgbStr(cfg.color)},0.10)`,
-                        color: cfg.color,
-                        border: `1px solid rgba(${hexToRgbStr(cfg.color)},0.20)`,
+                        color:      cfg.color,
+                        border:     `1px solid rgba(${hexToRgbStr(cfg.color)},0.20)`,
                       }}
                     >
                       {cfg.label}
@@ -296,27 +295,30 @@ function CalendarPreview({ events }: { events: CalendarEvent[] }) {
         </ul>
       )}
 
-      <p className="text-xs text-[#3E6474] mt-4 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+      <p
+        className="text-xs text-[#3E6474] mt-4 pt-3"
+        style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+      >
         Sync from the PolarisPilot app to update your schedule
       </p>
     </div>
   )
 }
 
-// ─── Goals card ───────────────────────────────────────────────────────────────
+// ─── Goals + XP card ─────────────────────────────────────────────────────────
 
 function GoalsCard({
   goal,
   totalXp,
   xpLevel,
 }: {
-  goal:     import('@/lib/dashboard-data').GoalData | null
-  totalXp:  number
-  xpLevel:  number
+  goal:    GoalData | null
+  totalXp: number
+  xpLevel: number
 }) {
   const xpBlock = (
     <div
-      className="mt-auto rounded-xl p-3 flex items-center gap-3"
+      className="rounded-xl p-3 flex items-center gap-3"
       style={{ background: 'rgba(167,139,250,0.07)', border: '1px solid rgba(167,139,250,0.15)' }}
     >
       <div
@@ -338,8 +340,8 @@ function GoalsCard({
         <p className="section-eyebrow !mb-0">Goals and XP</p>
         <div className="flex-1 flex flex-col items-center justify-center gap-2 py-4 text-center">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="opacity-30">
-            <circle cx="12" cy="12" r="9" stroke="#8CB4C0" strokeWidth="1.5" />
-            <path d="M12 8v4l3 3" stroke="#8CB4C0" strokeWidth="1.5" strokeLinecap="round" />
+            <circle cx="12" cy="12" r="9" stroke="#8CB4C0" strokeWidth="1.5"/>
+            <path d="M12 8v4l3 3" stroke="#8CB4C0" strokeWidth="1.5" strokeLinecap="round"/>
           </svg>
           <p className="text-sm text-[#4A7A8A]">No active goal</p>
           <p className="text-xs text-[#3E6474]">Set an income goal in the app to track progress here</p>
@@ -361,20 +363,14 @@ function GoalsCard({
         </span>
       </div>
 
-      {/* Goal progress */}
       <div className="space-y-2">
         <div className="flex justify-between items-center">
           <p className="text-sm font-medium text-[#C8EDE5]">{goal.label}</p>
           <p className="text-sm font-bold text-[#3DD6B0]">{goal.progressPct}%</p>
         </div>
-
-        {/* Progress bar */}
-        <div
-          className="w-full h-2 rounded-full overflow-hidden"
-          style={{ background: 'rgba(255,255,255,0.07)' }}
-        >
+        <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.07)' }}>
           <div
-            className="h-full rounded-full transition-all duration-500"
+            className="h-full rounded-full"
             style={{
               width:      `${goal.progressPct}%`,
               background: 'linear-gradient(90deg, #3DD6B0 0%, #5EE4C0 100%)',
@@ -382,7 +378,6 @@ function GoalsCard({
             }}
           />
         </div>
-
         <div className="flex justify-between text-xs text-[#4A7A8A]">
           <span>{formatAUD(goal.currentAmount)}</span>
           <span>{formatAUD(goal.targetAmount)}</span>
@@ -398,7 +393,7 @@ function GoalsCard({
 
 const EXPORT_ITEMS = [
   {
-    id:       'income-pdf',
+    id:       'income-summary',
     title:    'Income Summary',
     format:   'PDF',
     desc:     'Monthly income breakdown across all platforms',
@@ -409,7 +404,7 @@ const EXPORT_ITEMS = [
     id:       'tax-report',
     title:    'Tax Report',
     format:   'PDF',
-    desc:     'ATO-ready income and expense summary for lodgement',
+    desc:     'ATO-ready income and expense summary',
     accent:   '#60C8F5',
     iconPath: 'M9 14l2 2 4-4M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
   },
@@ -417,9 +412,17 @@ const EXPORT_ITEMS = [
     id:       'shift-csv',
     title:    'Shift History',
     format:   'CSV',
-    desc:     'Complete shift log with hours, earnings, and platform',
+    desc:     'Complete log with hours, earnings and platform',
     accent:   '#A78BFA',
     iconPath: 'M4 6h16M4 10h16M4 14h8M4 18h8M14 14h6M14 18h6',
+  },
+  {
+    id:       'accountant',
+    title:    'Accountant Summary',
+    format:   'PDF',
+    desc:     'Clean records overview for your accountant',
+    accent:   '#34D399',
+    iconPath: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z',
   },
 ] as const
 
@@ -429,7 +432,7 @@ function ExportCentre() {
       <div className="flex items-center justify-between mb-5">
         <div>
           <p className="section-eyebrow !mb-0">Export Centre</p>
-          <p className="text-xs text-[#4A7A8A] mt-1">Download your income data in various formats</p>
+          <p className="text-xs text-[#4A7A8A] mt-1">Download your income data in multiple formats</p>
         </div>
         <span
           className="text-xs font-semibold px-3 py-1 rounded-full flex-shrink-0"
@@ -439,32 +442,29 @@ function ExportCentre() {
         </span>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {EXPORT_ITEMS.map(({ id, title, format, desc, accent, iconPath }) => (
           <div
             key={id}
-            className="rounded-xl p-4 flex flex-col gap-3 opacity-60 cursor-not-allowed select-none"
+            className="rounded-xl p-4 flex flex-col gap-3 opacity-55 cursor-not-allowed select-none"
             style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}
             aria-disabled="true"
           >
             <div className="flex items-start justify-between">
               <div
-                className="w-9 h-9 rounded-lg flex items-center justify-center"
+                className="w-8 h-8 rounded-lg flex items-center justify-center"
                 style={{
                   background: `rgba(${hexToRgbStr(accent)},0.12)`,
                   border:     `1px solid rgba(${hexToRgbStr(accent)},0.22)`,
                 }}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d={iconPath} stroke={accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d={iconPath} stroke={accent} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
               <span
-                className="text-xs font-bold px-2 py-0.5 rounded"
-                style={{
-                  background: `rgba(${hexToRgbStr(accent)},0.10)`,
-                  color: accent,
-                }}
+                className="text-xs font-bold px-1.5 py-0.5 rounded"
+                style={{ background: `rgba(${hexToRgbStr(accent)},0.10)`, color: accent }}
               >
                 {format}
               </span>
@@ -473,10 +473,10 @@ function ExportCentre() {
               <p className="text-sm font-semibold text-[#C8EDE5]">{title}</p>
               <p className="text-xs text-[#4A7A8A] mt-0.5 leading-relaxed">{desc}</p>
             </div>
-            <div className="mt-auto flex items-center gap-1.5 text-xs text-[#3E6474]">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <rect x="5" y="11" width="14" height="10" rx="2" stroke="#3E6474" strokeWidth="2" />
-                <path d="M8 11V7a4 4 0 018 0v4" stroke="#3E6474" strokeWidth="2" strokeLinecap="round" />
+            <div className="mt-auto flex items-center gap-1 text-xs text-[#3E6474]">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="5" y="11" width="14" height="10" rx="2" stroke="#3E6474" strokeWidth="2"/>
+                <path d="M8 11V7a4 4 0 018 0v4" stroke="#3E6474" strokeWidth="2" strokeLinecap="round"/>
               </svg>
               Available in a future update
             </div>
@@ -487,7 +487,7 @@ function ExportCentre() {
   )
 }
 
-// ─── Locked dashboard (non-premium) ──────────────────────────────────────────
+// ─── Locked dashboard ─────────────────────────────────────────────────────────
 
 function LockedDashboard() {
   return (
@@ -504,30 +504,20 @@ function LockedDashboard() {
             style={{ background: 'rgba(61,214,176,0.10)', border: '1px solid rgba(61,214,176,0.22)' }}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <rect x="5" y="11" width="14" height="10" rx="2" stroke="#3DD6B0" strokeWidth="1.8" />
-              <path d="M8 11V7a4 4 0 018 0v4" stroke="#3DD6B0" strokeWidth="1.8" strokeLinecap="round" />
+              <rect x="5" y="11" width="14" height="10" rx="2" stroke="#3DD6B0" strokeWidth="1.8"/>
+              <path d="M8 11V7a4 4 0 018 0v4" stroke="#3DD6B0" strokeWidth="1.8" strokeLinecap="round"/>
             </svg>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-base font-semibold text-[#C8EDE5] mb-1.5">
-              Unlock the full dashboard with Pro
-            </p>
+            <p className="text-base font-semibold text-[#C8EDE5] mb-1.5">Unlock the full dashboard with Pro</p>
             <p className="text-sm text-[#8CB4C0] leading-relaxed mb-4">
-              Subscribe to PolarisPilot Pro in the iOS or Android app to unlock income tracking,
-              shift calendar, tax reports, export tools, and more.
+              Subscribe to PolarisPilot Pro in the iOS or Android app to unlock your Compass score,
+              income tracking, shift calendar, tax reports, export tools, and more.
               Your subscription syncs here automatically.
             </p>
             <div className="flex flex-wrap gap-2 mb-4">
-              {[
-                'Income summary',
-                'Shift calendar',
-                'Tax reports',
-                'Export centre',
-                'Goals and XP',
-              ].map((feat) => (
-                <span key={feat} className="badge text-[10px] py-0.5">
-                  {feat}
-                </span>
+              {['Compass score','Income summary','Shift calendar','Tax reports','Export centre','Goals and XP'].map((feat) => (
+                <span key={feat} className="badge text-[10px] py-0.5">{feat}</span>
               ))}
             </div>
             <p className="text-xs text-[#3E6474]">Available on iOS and Android. Coming to the App Store and Google Play.</p>
@@ -535,13 +525,31 @@ function LockedDashboard() {
         </div>
       </div>
 
-      {/* Blurred preview cards */}
+      {/* Blurred compass preview */}
+      <div
+        className="glass-surface rounded-2xl p-6 relative overflow-hidden"
+        style={{ opacity: 0.45, minHeight: '140px' }}
+        aria-hidden="true"
+      >
+        <p className="section-eyebrow mb-2">Compass Score</p>
+        <div className="flex items-center gap-4">
+          <div className="w-20 h-20 rounded-full" style={{ background: 'rgba(61,214,176,0.15)', border: '8px solid rgba(61,214,176,0.20)' }} />
+          <div className="space-y-2">
+            <div className="h-3 w-32 rounded" style={{ background: 'rgba(255,255,255,0.10)' }} />
+            <div className="h-2 w-24 rounded" style={{ background: 'rgba(255,255,255,0.06)' }} />
+            <div className="h-2 w-40 rounded" style={{ background: 'rgba(255,255,255,0.06)' }} />
+          </div>
+        </div>
+        <LockedOverlay />
+      </div>
+
+      {/* Blurred summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4" aria-hidden="true">
         {[
-          { label: 'Total Income',    value: '$0.00',   accent: '#3DD6B0' },
-          { label: 'Total Expenses',  value: '$0.00',   accent: '#F59E6A' },
-          { label: 'Net Income',      value: '$0.00',   accent: '#5EE4C0' },
-          { label: 'Active Modules',  value: '0',       accent: '#A78BFA' },
+          { label: 'Total Income',   value: '$0.00', accent: '#3DD6B0' },
+          { label: 'Total Expenses', value: '$0.00', accent: '#F59E6A' },
+          { label: 'Net Income',     value: '$0.00', accent: '#5EE4C0' },
+          { label: 'Active Modules', value: '0',     accent: '#A78BFA' },
         ].map(({ label, value, accent }) => (
           <div
             key={label}
@@ -550,28 +558,17 @@ function LockedDashboard() {
           >
             <p className="text-xs font-semibold text-[#4A7A8A] mb-2">{label}</p>
             <p className="text-xl sm:text-2xl font-bold" style={{ color: accent }}>{value}</p>
-
-            {/* Lock overlay */}
-            <div className="absolute inset-0 flex items-center justify-center backdrop-blur-[3px]">
-              <div
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-[#8CB4C0]"
-                style={{ background: 'rgba(7,15,21,0.80)', border: '1px solid rgba(255,255,255,0.09)' }}
-              >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <rect x="5" y="11" width="14" height="10" rx="2" stroke="#4A7A8A" strokeWidth="2" />
-                  <path d="M8 11V7a4 4 0 018 0v4" stroke="#4A7A8A" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-                Pro only
-              </div>
-            </div>
+            <LockedOverlay />
           </div>
         ))}
       </div>
 
+      {/* Blurred larger sections */}
       {[
-        { label: 'Upcoming Schedule', hint: 'See your next shifts, paydays and bookings' },
-        { label: 'Goals and XP',      hint: 'Track income goals and earn experience points' },
-        { label: 'Export Centre',     hint: 'Download income reports and tax summaries' },
+        { label: 'Upcoming Schedule',  hint: 'Shifts, paydays and upcoming bookings' },
+        { label: '7-Day Earnings Trend', hint: 'Visual income and expense trend for the week' },
+        { label: 'Recent Activity',    hint: 'Latest income and expense entries' },
+        { label: 'Export Centre',      hint: 'PDF reports, CSV exports and accountant summaries' },
       ].map(({ label, hint }) => (
         <div
           key={label}
@@ -581,25 +578,29 @@ function LockedDashboard() {
         >
           <p className="section-eyebrow mb-2">{label}</p>
           <p className="text-sm text-[#8CB4C0]">{hint}</p>
-
-          <div className="absolute inset-0 flex items-center justify-center backdrop-blur-[3px]">
-            <div
-              className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold text-[#8CB4C0]"
-              style={{ background: 'rgba(7,15,21,0.80)', border: '1px solid rgba(255,255,255,0.09)' }}
-            >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <rect x="5" y="11" width="14" height="10" rx="2" stroke="#4A7A8A" strokeWidth="2" />
-                <path d="M8 11V7a4 4 0 018 0v4" stroke="#4A7A8A" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-              Pro only
-            </div>
-          </div>
+          <LockedOverlay />
         </div>
       ))}
 
-      {/* Already subscribed? */}
       <div className="flex justify-center pt-1">
         <PremiumRefreshButton label="Already subscribed? Refresh status" />
+      </div>
+    </div>
+  )
+}
+
+function LockedOverlay() {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center backdrop-blur-[3px]">
+      <div
+        className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold text-[#8CB4C0]"
+        style={{ background: 'rgba(7,15,21,0.82)', border: '1px solid rgba(255,255,255,0.09)' }}
+      >
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <rect x="5" y="11" width="14" height="10" rx="2" stroke="#4A7A8A" strokeWidth="2"/>
+          <path d="M8 11V7a4 4 0 018 0v4" stroke="#4A7A8A" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+        Pro only
       </div>
     </div>
   )

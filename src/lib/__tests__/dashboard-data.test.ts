@@ -13,6 +13,10 @@
  *   - Graceful fallback when any table returns an error
  *   - deleted_at IS NULL filter applied everywhere
  *   - xpToLevel and parseModuleJson pure helpers
+ *   - recentActivity merged feed (income + expense, sorted date desc)
+ *   - moduleBreakdown grouped by source with percentages
+ *   - weeklyTrend 7-day array with correct daily totals
+ *   - compass score derived from cloud data
  */
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { xpToLevel, parseModuleJson } from '../dashboard-data'
@@ -25,6 +29,11 @@ vi.mock('@/lib/supabase/service', () => ({
 
 import { createServiceClient } from '@/lib/supabase/service'
 import { loadDashboardData } from '../dashboard-data'
+
+// ─── Dynamic date helpers ─────────────────────────────────────────────────────
+
+/** Today as YYYY-MM-DD (within current month, so passes monthIncomeRows filter) */
+const TODAY = new Date().toISOString().split('T')[0]
 
 // ─── Supabase chain mock builder ──────────────────────────────────────────────
 
@@ -69,17 +78,48 @@ function mockClient(tableMap: Record<string, QueryResult>) {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+/** An income row with all required fields. Override individual fields as needed. */
+function incRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id:           'inc-default',
+    entry_date:   TODAY,
+    gross_amount: null,
+    net_amount:   null,
+    amount:       null,
+    source:       null,
+    platform:     null,
+    title:        null,
+    notes_text:   null,
+    created_at:   null,
+    ...overrides,
+  }
+}
+
+/** An expense row with all required fields. Override individual fields as needed. */
+function expRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id:           'exp-default',
+    expense_date: TODAY,
+    amount:       null,
+    category:     null,
+    item_name:    null,
+    title:        null,
+    created_at:   null,
+    ...overrides,
+  }
+}
+
 const EMPTY: Record<string, QueryResult> = {
-  income_entries:              { data: [],  error: null },
-  expense_entries:             { data: [],  error: null },
+  income_entries:              { data: [],   error: null },
+  expense_entries:             { data: [],   error: null },
   workspace_preferences:       { data: null, error: { message: 'No rows found' } },
   goal_plans:                  { data: null, error: { message: 'No rows found' } },
-  premium_xp_ledger:           { data: [],  error: null },
-  planned_shifts:              { data: [],  error: null },
-  rental_bookings:             { data: [],  error: null },
-  freelance_entries:           { data: [],  error: null },
-  salary_employment_profiles:  { data: [],  error: null },
-  salary_leave_entries:        { data: [],  error: null },
+  premium_xp_ledger:           { data: [],   error: null },
+  planned_shifts:              { data: [],   error: null },
+  rental_bookings:             { data: [],   error: null },
+  freelance_entries:           { data: [],   error: null },
+  salary_employment_profiles:  { data: [],   error: null },
+  salary_leave_entries:        { data: [],   error: null },
 }
 
 // ─── Pure helper tests ────────────────────────────────────────────────────────
@@ -191,8 +231,8 @@ describe('loadDashboardData', () => {
         ...EMPTY,
         income_entries: {
           data: [
-            { gross_amount: 300, net_amount: 250, amount: null },
-            { gross_amount: 200, net_amount: 170, amount: null },
+            incRow({ id: 'i1', gross_amount: 300, net_amount: 250, amount: null }),
+            incRow({ id: 'i2', gross_amount: 200, net_amount: 170, amount: null }),
           ],
           error: null,
         },
@@ -206,7 +246,7 @@ describe('loadDashboardData', () => {
       ;(createServiceClient as Mock).mockReturnValue(mockClient({
         ...EMPTY,
         income_entries: {
-          data: [{ gross_amount: null, net_amount: 180, amount: null }],
+          data: [incRow({ id: 'i1', gross_amount: null, net_amount: 180, amount: null })],
           error: null,
         },
       }))
@@ -219,7 +259,7 @@ describe('loadDashboardData', () => {
       ;(createServiceClient as Mock).mockReturnValue(mockClient({
         ...EMPTY,
         income_entries: {
-          data: [{ gross_amount: null, net_amount: null, amount: 90 }],
+          data: [incRow({ id: 'i1', gross_amount: null, net_amount: null, amount: 90 })],
           error: null,
         },
       }))
@@ -246,7 +286,10 @@ describe('loadDashboardData', () => {
       ;(createServiceClient as Mock).mockReturnValue(mockClient({
         ...EMPTY,
         expense_entries: {
-          data: [{ amount: 150 }, { amount: 75 }],
+          data: [
+            expRow({ id: 'e1', amount: 150 }),
+            expRow({ id: 'e2', amount: 75 }),
+          ],
           error: null,
         },
       }))
@@ -271,8 +314,8 @@ describe('loadDashboardData', () => {
   it('computes netIncome as totalIncome minus totalExpenses', async () => {
     ;(createServiceClient as Mock).mockReturnValue(mockClient({
       ...EMPTY,
-      income_entries:  { data: [{ gross_amount: 1000, net_amount: null, amount: null }], error: null },
-      expense_entries: { data: [{ amount: 300 }], error: null },
+      income_entries:  { data: [incRow({ id: 'i1', gross_amount: 1000 })], error: null },
+      expense_entries: { data: [expRow({ id: 'e1', amount: 300 })], error: null },
     }))
 
     const result = await loadDashboardData('user-abc')
@@ -662,7 +705,7 @@ describe('loadDashboardData', () => {
     })
 
     it('limits merged events to 8 total', async () => {
-      // 10 shifts + 3 rentals = 13 raw events -> must be capped at 8
+      // 10 shifts -> must be capped at 8
       const manyShifts = Array.from({ length: 10 }, (_, i) => ({
         id:                 `s${i}`,
         title:              `Shift ${i}`,
@@ -708,6 +751,310 @@ describe('loadDashboardData', () => {
       expect(result.totalXp).toBe(0)
       expect(result.upcomingEvents).toEqual([])
       expect(result.hasAnyData).toBe(false)
+    })
+  })
+
+  // ── recentActivity -- merged income + expense feed ────────────────────────
+
+  describe('recentActivity', () => {
+    it('includes income entries with type=income', async () => {
+      ;(createServiceClient as Mock).mockReturnValue(mockClient({
+        ...EMPTY,
+        income_entries: {
+          data: [incRow({ id: 'i1', gross_amount: 200, source: 'rideshare', title: 'Uber trip' })],
+          error: null,
+        },
+      }))
+
+      const result = await loadDashboardData('user-abc')
+      const incEntry = result.recentActivity.find(e => e.id === 'i1')
+      expect(incEntry).toBeDefined()
+      expect(incEntry!.type).toBe('income')
+      expect(incEntry!.title).toBe('Uber trip')
+      expect(incEntry!.amount).toBe(200)
+      expect(incEntry!.source).toBe('rideshare')
+    })
+
+    it('includes expense entries with type=expense', async () => {
+      ;(createServiceClient as Mock).mockReturnValue(mockClient({
+        ...EMPTY,
+        expense_entries: {
+          data: [expRow({ id: 'e1', amount: 50, category: 'fuel' })],
+          error: null,
+        },
+      }))
+
+      const result = await loadDashboardData('user-abc')
+      const expEntry = result.recentActivity.find(e => e.id === 'e1')
+      expect(expEntry).toBeDefined()
+      expect(expEntry!.type).toBe('expense')
+      expect(expEntry!.amount).toBe(50)
+      expect(expEntry!.category).toBe('fuel')
+    })
+
+    it('falls back to MODULE_LABELS for income title when title is null', async () => {
+      ;(createServiceClient as Mock).mockReturnValue(mockClient({
+        ...EMPTY,
+        income_entries: {
+          data: [incRow({ id: 'i1', gross_amount: 100, source: 'delivery', title: null })],
+          error: null,
+        },
+      }))
+
+      const result = await loadDashboardData('user-abc')
+      const entry = result.recentActivity.find(e => e.id === 'i1')
+      expect(entry!.title).toBe('Delivery')
+    })
+
+    it('returns at most 10 entries when more exist', async () => {
+      const manyIncome = Array.from({ length: 15 }, (_, i) =>
+        incRow({ id: `i${i}`, gross_amount: 50, source: 'rideshare', title: `Trip ${i}` }),
+      )
+
+      ;(createServiceClient as Mock).mockReturnValue(mockClient({
+        ...EMPTY,
+        income_entries: { data: manyIncome, error: null },
+      }))
+
+      const result = await loadDashboardData('user-abc')
+      expect(result.recentActivity.length).toBeLessThanOrEqual(10)
+    })
+
+    it('is empty when no income or expenses exist', async () => {
+      const result = await loadDashboardData('user-abc')
+      expect(result.recentActivity).toEqual([])
+    })
+  })
+
+  // ── moduleBreakdown -- income grouped by source ───────────────────────────
+
+  describe('moduleBreakdown', () => {
+    it('groups income by source and sorts by amount descending', async () => {
+      ;(createServiceClient as Mock).mockReturnValue(mockClient({
+        ...EMPTY,
+        income_entries: {
+          data: [
+            incRow({ id: 'i1', gross_amount: 300, source: 'rideshare' }),
+            incRow({ id: 'i2', gross_amount: 200, source: 'delivery' }),
+            incRow({ id: 'i3', gross_amount: 100, source: 'rideshare' }),
+          ],
+          error: null,
+        },
+      }))
+
+      const result = await loadDashboardData('user-abc')
+      // rideshare: 400, delivery: 200 -> total 600
+      expect(result.moduleBreakdown).toHaveLength(2)
+      expect(result.moduleBreakdown[0].source).toBe('rideshare')
+      expect(result.moduleBreakdown[0].amount).toBe(400)
+      expect(result.moduleBreakdown[0].pct).toBe(67)  // Math.round(400/600*100)
+      expect(result.moduleBreakdown[1].source).toBe('delivery')
+      expect(result.moduleBreakdown[1].amount).toBe(200)
+      expect(result.moduleBreakdown[1].pct).toBe(33)  // Math.round(200/600*100)
+    })
+
+    it('uses MODULE_LABELS for display labels', async () => {
+      ;(createServiceClient as Mock).mockReturnValue(mockClient({
+        ...EMPTY,
+        income_entries: {
+          data: [incRow({ id: 'i1', gross_amount: 100, source: 'freelance' })],
+          error: null,
+        },
+      }))
+
+      const result = await loadDashboardData('user-abc')
+      expect(result.moduleBreakdown[0].label).toBe('Freelance')
+    })
+
+    it('uses source as label for unrecognised module keys', async () => {
+      ;(createServiceClient as Mock).mockReturnValue(mockClient({
+        ...EMPTY,
+        income_entries: {
+          data: [incRow({ id: 'i1', gross_amount: 100, source: 'custom_gig' })],
+          error: null,
+        },
+      }))
+
+      const result = await loadDashboardData('user-abc')
+      expect(result.moduleBreakdown[0].label).toBe('custom_gig')
+    })
+
+    it('returns empty array when no income entries exist', async () => {
+      const result = await loadDashboardData('user-abc')
+      expect(result.moduleBreakdown).toEqual([])
+    })
+
+    it('assigns source=manual for rows with no source field', async () => {
+      ;(createServiceClient as Mock).mockReturnValue(mockClient({
+        ...EMPTY,
+        income_entries: {
+          data: [incRow({ id: 'i1', gross_amount: 150, source: null })],
+          error: null,
+        },
+      }))
+
+      const result = await loadDashboardData('user-abc')
+      expect(result.moduleBreakdown[0].source).toBe('manual')
+      expect(result.moduleBreakdown[0].label).toBe('Manual Entry')
+    })
+  })
+
+  // ── weeklyTrend -- 7-day bar chart data ───────────────────────────────────
+
+  describe('weeklyTrend', () => {
+    it('always returns exactly 7 days', async () => {
+      const result = await loadDashboardData('user-abc')
+      expect(result.weeklyTrend).toHaveLength(7)
+    })
+
+    it('marks today as isToday=true', async () => {
+      const result = await loadDashboardData('user-abc')
+      const today = result.weeklyTrend.find(d => d.isToday)
+      expect(today).toBeDefined()
+      expect(today!.date).toBe(TODAY)
+    })
+
+    it('accumulates income for a given day', async () => {
+      ;(createServiceClient as Mock).mockReturnValue(mockClient({
+        ...EMPTY,
+        income_entries: {
+          data: [
+            incRow({ id: 'i1', gross_amount: 150, source: 'rideshare' }),
+            incRow({ id: 'i2', gross_amount: 100, source: 'delivery' }),
+          ],
+          error: null,
+        },
+      }))
+
+      const result = await loadDashboardData('user-abc')
+      const today = result.weeklyTrend.find(d => d.isToday)!
+      expect(today.income).toBe(250)
+    })
+
+    it('accumulates expenses for a given day', async () => {
+      ;(createServiceClient as Mock).mockReturnValue(mockClient({
+        ...EMPTY,
+        expense_entries: {
+          data: [expRow({ id: 'e1', amount: 60, category: 'fuel' })],
+          error: null,
+        },
+      }))
+
+      const result = await loadDashboardData('user-abc')
+      const today = result.weeklyTrend.find(d => d.isToday)!
+      expect(today.expense).toBe(60)
+    })
+
+    it('net equals income minus expense', async () => {
+      ;(createServiceClient as Mock).mockReturnValue(mockClient({
+        ...EMPTY,
+        income_entries:  { data: [incRow({ id: 'i1', gross_amount: 200 })], error: null },
+        expense_entries: { data: [expRow({ id: 'e1', amount: 50 })], error: null },
+      }))
+
+      const result = await loadDashboardData('user-abc')
+      const today = result.weeklyTrend.find(d => d.isToday)!
+      expect(today.net).toBe(150)
+    })
+
+    it('has zero income and expense for days with no data', async () => {
+      const result = await loadDashboardData('user-abc')
+      const nonToday = result.weeklyTrend.filter(d => !d.isToday)
+      expect(nonToday.every(d => d.income === 0 && d.expense === 0)).toBe(true)
+    })
+
+    it('each day has a label string', async () => {
+      const result = await loadDashboardData('user-abc')
+      const VALID_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+      for (const day of result.weeklyTrend) {
+        expect(VALID_LABELS).toContain(day.label)
+      }
+    })
+  })
+
+  // ── compass -- Compass score derived from cloud data ─────────────────────
+
+  describe('compass', () => {
+    it('returns a compass object with all required fields', async () => {
+      const result = await loadDashboardData('user-abc')
+      expect(result.compass).toHaveProperty('score')
+      expect(result.compass).toHaveProperty('levelLabel')
+      expect(result.compass).toHaveProperty('levelColor')
+      expect(result.compass).toHaveProperty('summary')
+      expect(result.compass).toHaveProperty('positiveSignals')
+      expect(result.compass).toHaveProperty('improvementSignals')
+      expect(result.compass).toHaveProperty('pillarScores')
+    })
+
+    it('score is 35 (neutral baseline) when all data is empty', async () => {
+      // goalPace(null)=50*0.25 + consistency(0)=15*0.25 + expenses(0,0)=50*0.20
+      // + modules(0)=30*0.15 + activity(0)=25*0.15 = 34.5 -> Math.round = 35
+      const result = await loadDashboardData('user-abc')
+      expect(result.compass.score).toBe(35)
+    })
+
+    it('score increases when income is logged', async () => {
+      ;(createServiceClient as Mock).mockReturnValue(mockClient({
+        ...EMPTY,
+        income_entries: {
+          data: [incRow({ id: 'i1', gross_amount: 500, source: 'rideshare' })],
+          error: null,
+        },
+        premium_xp_ledger: { data: [{ amount: 100 }], error: null },
+      }))
+
+      const result = await loadDashboardData('user-abc')
+      // activeDaysLast7=1 -> consistency score improves over baseline
+      expect(result.compass.score).toBeGreaterThan(35)
+    })
+
+    it('levelLabel is consistent with score range', async () => {
+      const result = await loadDashboardData('user-abc')
+      const { score, levelLabel } = result.compass
+      if (score >= 80)       expect(levelLabel).toBe('Strong Momentum')
+      else if (score >= 60)  expect(levelLabel).toBe('On Track')
+      else if (score >= 40)  expect(levelLabel).toBe('Building Rhythm')
+      else                   expect(levelLabel).toBe('Getting Started')
+    })
+
+    it('pillarScores object has all 5 pillars', async () => {
+      const result = await loadDashboardData('user-abc')
+      expect(result.compass.pillarScores).toHaveProperty('goalPace')
+      expect(result.compass.pillarScores).toHaveProperty('consistency')
+      expect(result.compass.pillarScores).toHaveProperty('expenses')
+      expect(result.compass.pillarScores).toHaveProperty('modules')
+      expect(result.compass.pillarScores).toHaveProperty('activity')
+    })
+
+    it('uses module count from workspace_preferences', async () => {
+      ;(createServiceClient as Mock).mockReturnValue(mockClient({
+        ...EMPTY,
+        workspace_preferences: {
+          data: {
+            enabled_modules_json: ['rideshare', 'delivery', 'freelance'],
+            primary_modules_json: [],
+          },
+          error: null,
+        },
+      }))
+
+      const result = await loadDashboardData('user-abc')
+      // modules(3) = 90, higher than baseline modules(0) = 30
+      expect(result.compass.pillarScores.modules).toBe(90)
+    })
+
+    it('uses goal progress for pace pillar', async () => {
+      ;(createServiceClient as Mock).mockReturnValue(mockClient({
+        ...EMPTY,
+        goal_plans: {
+          data: { title: 'Goal', target_amount: 1000, current_amount: 1000, is_active: true, status: 'active' },
+          error: null,
+        },
+      }))
+
+      const result = await loadDashboardData('user-abc')
+      // goalProgressPct = 100 -> calcPaceScore(100) = 100
+      expect(result.compass.pillarScores.goalPace).toBe(100)
     })
   })
 })

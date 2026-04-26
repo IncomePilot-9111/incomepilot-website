@@ -1,19 +1,33 @@
 /**
  * Dashboard data loader -- SERVER ONLY.
  *
- * Loads all data required for the Phase 1 premium dashboard.
- * Every query targets the real PolarisPilot Supabase sync tables with
- * the verified column names from v1_schema.sql and salary migration files.
+ * Single orchestrated entry point: loadDashboardData().
+ * Fetches two broad row-level datasets (income + expenses for the last
+ * 14-day window) and derives all metrics in memory. All remaining
+ * queries run concurrently via Promise.all.
  *
- * All queries are read-only and fall back gracefully: if a table returns
- * an error or is empty the dashboard still renders with zero/null/[] values.
+ * Real PolarisPilot Supabase table names (verified from v1_schema.sql):
+ *   income_entries       -- entry_date (date), gross_amount, net_amount, amount
+ *   expense_entries      -- expense_date (date), amount (NOT NULL)
+ *   workspace_preferences-- enabled_modules_json / primary_modules_json (jsonb)
+ *   goal_plans           -- title, target_amount, current_amount, is_active
+ *   premium_xp_ledger    -- amount (integer, XP per event)
+ *   planned_shifts       -- shift_date (date), expected_total_pay
+ *   rental_bookings      -- start_datetime (NOT NULL), expected_amount
+ *   freelance_entries    -- due_date (date), gross_amount
+ *   salary_employment_profiles -- next_pay_date (text), pay_amount
+ *   salary_leave_entries -- start_date (date), leave_type
  *
- * Soft-deleted rows are excluded (deleted_at IS NULL) on every query.
- *
- * Note: date filtering uses UTC-based boundaries. Data stored in AEST will be
- * off by the UTC+10/+11 offset at day boundaries -- acceptable for Phase 1.
+ * All queries add .is('deleted_at', null) to exclude soft-deleted rows.
+ * Every query is wrapped in safeQuery() -- the dashboard never crashes on
+ * missing tables, RLS errors, or empty data.
  */
 import { createServiceClient } from '@/lib/supabase/service'
+import { computeCompassScore } from '@/lib/compass-score'
+import type { CompassData }    from '@/lib/compass-score'
+
+// ─── Re-export CompassData so callers don't need a second import ──────────────
+export type { CompassData }
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -30,7 +44,6 @@ export interface ModuleData {
   count:  number
 }
 
-/** Goal progress without XP -- XP lives at top level of DashboardData */
 export interface GoalData {
   label:         string
   currentAmount: number
@@ -41,24 +54,78 @@ export interface GoalData {
 export interface CalendarEvent {
   id:             string
   title:          string
-  scheduledAt:    string        // ISO string -- sort key
+  scheduledAt:    string          // ISO string -- sort key
   type:           'shift' | 'payday' | 'booking' | 'other'
   amountExpected: number | null
 }
 
+export interface ActivityEntry {
+  id:       string
+  date:     string               // YYYY-MM-DD
+  type:     'income' | 'expense'
+  title:    string
+  amount:   number
+  source:   string | null        // income: source field
+  category: string | null        // expense: category field
+}
+
+export interface ModuleIncome {
+  source: string
+  label:  string
+  amount: number
+  pct:    number                 // % of total income this month
+}
+
+export interface TrendDay {
+  date:    string                // YYYY-MM-DD
+  label:   string                // "Mon", "Tue", etc.
+  income:  number
+  expense: number
+  net:     number
+  isToday: boolean
+}
+
 export interface DashboardData {
-  summary:        SummaryData
-  modules:        ModuleData
-  goal:           GoalData | null
-  totalXp:        number        // sum of premium_xp_ledger.amount
-  xpLevel:        number        // derived from totalXp (500 XP per level)
-  upcomingEvents: CalendarEvent[]
-  hasAnyData:     boolean
+  summary:         SummaryData
+  modules:         ModuleData
+  goal:            GoalData | null
+  totalXp:         number
+  xpLevel:         number
+  upcomingEvents:  CalendarEvent[]
+  recentActivity:  ActivityEntry[]
+  moduleBreakdown: ModuleIncome[]
+  weeklyTrend:     TrendDay[]
+  compass:         CompassData
+  hasAnyData:      boolean
+}
+
+// ─── Private row types ────────────────────────────────────────────────────────
+
+interface IncomeRow {
+  id:           string
+  entry_date:   string
+  gross_amount: number | null
+  net_amount:   number | null
+  amount:       number | null
+  source:       string | null
+  platform:     string | null
+  title:        string | null
+  notes_text:   string | null
+  created_at:   string | null
+}
+
+interface ExpenseRow {
+  id:           string
+  expense_date: string
+  amount:       number | null
+  category:     string | null
+  item_name:    string | null
+  title:        string | null
+  created_at:   string | null
 }
 
 // ─── Private helpers ──────────────────────────────────────────────────────────
 
-/** Absorb any thrown error and return the fallback instead */
 async function safeQuery<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
   try {
     return await fn()
@@ -67,40 +134,32 @@ async function safeQuery<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
   }
 }
 
-/** Current month label: "June 2025" */
 function formatPeriodLabel(): string {
   return new Date().toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })
 }
 
-/** YYYY-MM-DD string for a Date (used when filtering date-type columns) */
 function toDateStr(d: Date): string {
   return d.toISOString().split('T')[0]
 }
 
-/** First day of the current month as YYYY-MM-DD */
 function monthStartDateStr(now: Date): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
 }
 
-/** Last day of the current month as YYYY-MM-DD */
 function monthEndDateStr(now: Date): string {
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 }
 
-/**
- * XP-to-level mapping (500 XP per level, starting at level 1).
- * Level 1 = 0-499 XP, Level 2 = 500-999 XP, etc.
- */
+/** Return the lexicographically earlier YYYY-MM-DD string */
+function earlierDate(a: string, b: string): string {
+  return a <= b ? a : b
+}
+
 export function xpToLevel(xp: number): number {
   return Math.floor(Math.max(0, xp) / 500) + 1
 }
 
-/**
- * Parse a workspace_preferences module JSON column.
- * The column is stored as JSONB -- Supabase returns it already parsed as an
- * array or object. This handles both the parsed and string fallback cases.
- */
 export function parseModuleJson(raw: unknown): string[] {
   if (!raw) return []
   if (Array.isArray(raw)) return raw.map(String).filter(Boolean)
@@ -115,56 +174,165 @@ export function parseModuleJson(raw: unknown): string[] {
   return []
 }
 
-// ─── Per-source loaders ───────────────────────────────────────────────────────
+function rowIncomeAmount(r: IncomeRow): number {
+  return r.gross_amount ?? r.net_amount ?? r.amount ?? 0
+}
 
-// Intentionally typed as unknown to avoid @supabase/supabase-js import in test env
+// ─── Module labels ────────────────────────────────────────────────────────────
+
+export const MODULE_LABELS: Record<string, string> = {
+  shift_worker: 'Shift Work',
+  rideshare:    'Rideshare',
+  delivery:     'Delivery',
+  freelance:    'Freelance',
+  rentals:      'Rentals',
+  salary:       'Salary',
+  manual:       'Manual Entry',
+}
+
+export const MODULE_COLORS: Record<string, string> = {
+  shift_worker: '#3DD6B0',
+  rideshare:    '#5EE4C0',
+  delivery:     '#60C8F5',
+  freelance:    '#A78BFA',
+  rentals:      '#F59E6A',
+  salary:       '#34D399',
+  manual:       '#8CB4C0',
+}
+
+// ─── In-memory derivations ────────────────────────────────────────────────────
+
+function deriveWeeklyTrend(
+  incomeRows:  IncomeRow[],
+  expenseRows: ExpenseRow[],
+  now:         Date,
+): TrendDay[] {
+  const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const todayStr = toDateStr(now)
+
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(now)
+    d.setDate(d.getDate() - (6 - i))
+    const dateStr  = toDateStr(d)
+    const dayLabel = DAY_LABELS[d.getDay()]
+
+    const income  = incomeRows
+      .filter(r => r.entry_date === dateStr)
+      .reduce((s, r) => s + rowIncomeAmount(r), 0)
+
+    const expense = expenseRows
+      .filter(r => r.expense_date === dateStr)
+      .reduce((s, r) => s + (r.amount ?? 0), 0)
+
+    return {
+      date:    dateStr,
+      label:   dayLabel,
+      income,
+      expense,
+      net:     income - expense,
+      isToday: dateStr === todayStr,
+    }
+  })
+}
+
+function deriveModuleBreakdown(
+  monthRows:   IncomeRow[],
+  totalIncome: number,
+): ModuleIncome[] {
+  const bySource: Record<string, number> = {}
+
+  for (const row of monthRows) {
+    const src    = row.source ?? 'manual'
+    const amount = rowIncomeAmount(row)
+    bySource[src] = (bySource[src] ?? 0) + amount
+  }
+
+  return Object.entries(bySource)
+    .filter(([, amount]) => amount > 0)
+    .sort(([, a], [, b]) => b - a)
+    .map(([source, amount]) => ({
+      source,
+      label:  MODULE_LABELS[source] ?? source,
+      amount,
+      pct: totalIncome > 0 ? Math.round((amount / totalIncome) * 100) : 0,
+    }))
+}
+
+function deriveRecentActivity(
+  incomeRows:  IncomeRow[],
+  expenseRows: ExpenseRow[],
+): ActivityEntry[] {
+  const inc: ActivityEntry[] = incomeRows.slice(0, 8).map(r => ({
+    id:       r.id,
+    date:     r.entry_date,
+    type:     'income' as const,
+    title:    r.title ?? MODULE_LABELS[r.source ?? ''] ?? r.source ?? 'Income',
+    amount:   rowIncomeAmount(r),
+    source:   r.source ?? null,
+    category: null,
+  }))
+
+  const exp: ActivityEntry[] = expenseRows.slice(0, 5).map(r => ({
+    id:       r.id,
+    date:     r.expense_date,
+    type:     'expense' as const,
+    title:    r.title ?? r.item_name ?? r.category ?? 'Expense',
+    amount:   r.amount ?? 0,
+    source:   null,
+    category: r.category ?? null,
+  }))
+
+  return [...inc, ...exp]
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 10)
+}
+
+// ─── Database loaders ─────────────────────────────────────────────────────────
+
 type ServiceClient = ReturnType<typeof createServiceClient>
 
-async function loadIncome(
-  service: ServiceClient,
-  userId:  string,
-  start:   string,
-  end:     string,
-): Promise<number> {
+async function loadIncomeRows(
+  service:   ServiceClient,
+  userId:    string,
+  startDate: string,
+  endDate:   string,
+): Promise<IncomeRow[]> {
   return safeQuery(async () => {
     const { data, error } = await service
       .from('income_entries')
-      .select('gross_amount, net_amount, amount')
+      .select('id, entry_date, gross_amount, net_amount, amount, source, platform, title, notes_text, created_at')
       .eq('user_id', userId)
-      .gte('entry_date', start)
-      .lte('entry_date', end)
+      .gte('entry_date', startDate)
+      .lte('entry_date', endDate)
       .is('deleted_at', null)
+      .order('entry_date', { ascending: false })
+      .order('created_at', { ascending: false })
 
-    if (error) return 0
-    return (data ?? []).reduce(
-      (sum: number, r: { gross_amount: number | null; net_amount: number | null; amount: number | null }) =>
-        sum + (r.gross_amount ?? r.net_amount ?? r.amount ?? 0),
-      0,
-    )
-  }, 0)
+    if (error) return []
+    return (data ?? []) as IncomeRow[]
+  }, [])
 }
 
-async function loadExpenses(
-  service: ServiceClient,
-  userId:  string,
-  start:   string,
-  end:     string,
-): Promise<number> {
+async function loadExpenseRows(
+  service:   ServiceClient,
+  userId:    string,
+  startDate: string,
+  endDate:   string,
+): Promise<ExpenseRow[]> {
   return safeQuery(async () => {
     const { data, error } = await service
       .from('expense_entries')
-      .select('amount')
+      .select('id, expense_date, amount, category, item_name, title, created_at')
       .eq('user_id', userId)
-      .gte('expense_date', start)
-      .lte('expense_date', end)
+      .gte('expense_date', startDate)
+      .lte('expense_date', endDate)
       .is('deleted_at', null)
+      .order('expense_date', { ascending: false })
+      .order('created_at', { ascending: false })
 
-    if (error) return 0
-    return (data ?? []).reduce(
-      (sum: number, r: { amount: number | null }) => sum + (r.amount ?? 0),
-      0,
-    )
-  }, 0)
+    if (error) return []
+    return (data ?? []) as ExpenseRow[]
+  }, [])
 }
 
 async function loadModules(
@@ -180,12 +348,7 @@ async function loadModules(
 
     if (error || !data) return { active: [] as string[], count: 0 }
 
-    const row = data as {
-      enabled_modules_json: unknown
-      primary_modules_json: unknown
-    }
-
-    // Prefer enabled_modules_json; fall back to primary_modules_json
+    const row = data as { enabled_modules_json: unknown; primary_modules_json: unknown }
     const active =
       parseModuleJson(row.enabled_modules_json).length > 0
         ? parseModuleJson(row.enabled_modules_json)
@@ -216,15 +379,13 @@ async function loadActiveGoal(
       title:          string | null
       target_amount:  number | null
       current_amount: number | null
-      is_active:      boolean
-      status:         string | null
     }
 
     const current = row.current_amount ?? 0
     const target  = row.target_amount  ?? 0
 
     return {
-      label:         row.title          ?? 'Income Goal',
+      label:         row.title ?? 'Income Goal',
       currentAmount: current,
       targetAmount:  target,
       progressPct:   target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0,
@@ -244,14 +405,11 @@ async function loadTotalXp(
       .is('deleted_at', null)
 
     if (error) return 0
-    return (data ?? []).reduce(
-      (sum: number, r: { amount: number | null }) => sum + (r.amount ?? 0),
-      0,
-    )
+    return (data ?? []).reduce((s: number, r: { amount: number | null }) => s + (r.amount ?? 0), 0)
   }, 0)
 }
 
-// ─── Calendar event sources ───────────────────────────────────────────────────
+// ─── Calendar event sources (all return CalendarEvent[]) ─────────────────────
 
 async function eventsFromPlannedShifts(
   service:  ServiceClient,
@@ -271,16 +429,11 @@ async function eventsFromPlannedShifts(
     if (error) return []
 
     return (data ?? []).map((r: {
-      id:                 string
-      title:              string | null
-      shift_date:         string
-      expected_total_pay: number | null
-      expected_amount:    number | null
-      module_type:        string | null
+      id: string; title: string | null; shift_date: string
+      expected_total_pay: number | null; expected_amount: number | null
     }): CalendarEvent => ({
       id:             r.id,
       title:          r.title ?? 'Planned shift',
-      // shift_date is a date column (YYYY-MM-DD) -- convert to ISO for uniform sorting
       scheduledAt:    new Date(r.shift_date).toISOString(),
       type:           'shift',
       amountExpected: r.expected_total_pay ?? r.expected_amount ?? null,
@@ -296,9 +449,8 @@ async function eventsFromRentalBookings(
   return safeQuery<CalendarEvent[]>(async () => {
     const { data, error } = await service
       .from('rental_bookings')
-      .select('id, title, start_datetime, start_at, expected_amount, total_amount, booking_status, status')
+      .select('id, title, start_datetime, start_at, expected_amount, total_amount')
       .eq('user_id', userId)
-      // start_datetime is NOT NULL in the schema -- safe to filter on
       .gte('start_datetime', now.toISOString())
       .is('deleted_at', null)
       .order('start_datetime', { ascending: true })
@@ -307,14 +459,9 @@ async function eventsFromRentalBookings(
     if (error) return []
 
     return (data ?? []).map((r: {
-      id:              string
-      title:           string | null
-      start_datetime:  string
-      start_at:        string | null
-      expected_amount: number | null
-      total_amount:    number | null
-      booking_status:  string | null
-      status:          string | null
+      id: string; title: string | null
+      start_datetime: string; start_at: string | null
+      expected_amount: number | null; total_amount: number | null
     }): CalendarEvent => ({
       id:             r.id,
       title:          r.title ?? 'Rental booking',
@@ -343,18 +490,12 @@ async function eventsFromFreelanceEntries(
     if (error) return []
 
     return (data ?? [])
-      // Exclude already-paid entries
       .filter((r: { payment_status: string | null }) =>
         r.payment_status !== 'paid' && r.payment_status !== 'received',
       )
       .map((r: {
-        id:              string
-        service_name:    string | null
-        job_title:       string | null
-        due_date:        string
-        gross_amount:    number | null
-        net_amount:      number | null
-        payment_status:  string | null
+        id: string; service_name: string | null; job_title: string | null
+        due_date: string; gross_amount: number | null; net_amount: number | null
       }): CalendarEvent => ({
         id:             r.id,
         title:          r.service_name ?? r.job_title ?? 'Freelance payment due',
@@ -371,7 +512,6 @@ async function eventsFromSalaryPaydays(
   todayStr: string,
 ): Promise<CalendarEvent[]> {
   return safeQuery<CalendarEvent[]>(async () => {
-    // next_pay_date is stored as text in the schema (nullable)
     const { data, error } = await service
       .from('salary_employment_profiles')
       .select('id, employer_name, next_pay_date, pay_amount')
@@ -382,20 +522,10 @@ async function eventsFromSalaryPaydays(
     if (error || !data) return []
 
     return (data as Array<{
-      id:            string
-      employer_name: string | null
-      next_pay_date: string | null
-      pay_amount:    number | null
+      id: string; employer_name: string | null
+      next_pay_date: string | null; pay_amount: number | null
     }>)
-      .filter((r) => {
-        // Parse text date -- safeguard against unexpected format
-        if (!r.next_pay_date) return false
-        try {
-          return r.next_pay_date >= todayStr
-        } catch {
-          return false
-        }
-      })
+      .filter(r => r.next_pay_date && r.next_pay_date >= todayStr)
       .map((r): CalendarEvent => ({
         id:             r.id,
         title:          r.employer_name ? `${r.employer_name} payday` : 'Salary payday',
@@ -424,14 +554,11 @@ async function eventsFromSalaryLeave(
     if (error) return []
 
     return (data ?? []).map((r: {
-      id:                   string
-      leave_type:           string | null
-      start_date:           string
-      end_date:             string
-      estimated_pay_impact: number | null
+      id: string; leave_type: string | null
+      start_date: string; estimated_pay_impact: number | null
     }): CalendarEvent => {
       const leaveLabel = r.leave_type
-        ? r.leave_type.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase()).trim()
+        ? r.leave_type.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase()).trim()
         : 'Leave'
       return {
         id:             r.id,
@@ -450,7 +577,6 @@ async function loadUpcomingEvents(
   now:      Date,
   todayStr: string,
 ): Promise<CalendarEvent[]> {
-  // Query all five sources concurrently -- each falls back to [] on error
   const [shifts, rentals, freelance, paydays, leave] = await Promise.all([
     eventsFromPlannedShifts(service, userId, todayStr),
     eventsFromRentalBookings(service, userId, now),
@@ -460,32 +586,55 @@ async function loadUpcomingEvents(
   ])
 
   const all = [...shifts, ...rentals, ...freelance, ...paydays, ...leave]
-
-  // Sort chronologically by ISO scheduledAt string (lexicographic sort works for ISO dates)
   all.sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
-
-  // Return at most 8 upcoming events on the dashboard
   return all.slice(0, 8)
 }
 
 // ─── Main entry point ─────────────────────────────────────────────────────────
 
 export async function loadDashboardData(userId: string): Promise<DashboardData> {
-  const service  = createServiceClient()
-  const now      = new Date()
-  const todayStr = toDateStr(now)
-  const start    = monthStartDateStr(now)
-  const end      = monthEndDateStr(now)
+  const service     = createServiceClient()
+  const now         = new Date()
+  const todayStr    = toDateStr(now)
+  const monthStart  = monthStartDateStr(now)
+  const monthEnd    = monthEndDateStr(now)
 
-  // Run all top-level queries concurrently
-  const [totalIncome, totalExpenses, modules, goal, totalXp, upcomingEvents] = await Promise.all([
-    loadIncome(service, userId, start, end),
-    loadExpenses(service, userId, start, end),
+  // Extend window back 13 days to capture a full 7-day trend even at month start
+  const sevenDaysAgoStr = toDateStr(new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000))
+  const windowStart     = earlierDate(monthStart, sevenDaysAgoStr)
+
+  // All queries run concurrently
+  const [incomeRows, expenseRows, modules, goal, totalXp, upcomingEvents] = await Promise.all([
+    loadIncomeRows(service, userId, windowStart, monthEnd),
+    loadExpenseRows(service, userId, windowStart, monthEnd),
     loadModules(service, userId),
     loadActiveGoal(service, userId),
     loadTotalXp(service, userId),
     loadUpcomingEvents(service, userId, now, todayStr),
   ])
+
+  // Scope rows to current month for financial summary
+  const monthIncomeRows  = incomeRows.filter(r => r.entry_date  >= monthStart)
+  const monthExpenseRows = expenseRows.filter(r => r.expense_date >= monthStart)
+
+  const totalIncome   = monthIncomeRows.reduce((s, r) => s + rowIncomeAmount(r), 0)
+  const totalExpenses = monthExpenseRows.reduce((s, r) => s + (r.amount ?? 0), 0)
+
+  // Derive all secondary datasets in memory (no extra DB calls)
+  const weeklyTrend    = deriveWeeklyTrend(incomeRows, expenseRows, now)
+  const moduleBreakdown = deriveModuleBreakdown(monthIncomeRows, totalIncome)
+  const recentActivity  = deriveRecentActivity(incomeRows, expenseRows)
+
+  const activeDaysLast7 = weeklyTrend.filter(d => d.income > 0).length
+
+  const compass = computeCompassScore({
+    totalIncome,
+    totalExpenses,
+    modulesCount:    modules.count,
+    goalProgressPct: goal?.progressPct ?? null,
+    totalXp,
+    activeDaysLast7,
+  })
 
   return {
     summary: {
@@ -498,8 +647,12 @@ export async function loadDashboardData(userId: string): Promise<DashboardData> 
     modules,
     goal,
     totalXp,
-    xpLevel:    xpToLevel(totalXp),
+    xpLevel:        xpToLevel(totalXp),
     upcomingEvents,
+    recentActivity,
+    moduleBreakdown,
+    weeklyTrend,
+    compass,
     hasAnyData: totalIncome > 0 || totalExpenses > 0 || upcomingEvents.length > 0,
   }
 }
