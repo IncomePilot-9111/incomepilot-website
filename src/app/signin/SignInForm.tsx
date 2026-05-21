@@ -5,7 +5,13 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-export default function SignInForm() {
+interface SignInFormProps {
+  /** Shown as a dismissible info banner above the form.
+   *  Passed by the server page when ?reason=inactive is present. */
+  inactivityMessage?: string | null
+}
+
+export default function SignInForm({ inactivityMessage }: SignInFormProps = {}) {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -54,6 +60,32 @@ export default function SignInForm() {
       className="glass-card border-glow p-6 sm:p-8"
       style={{ borderRadius: '24px' }}
     >
+      {/* Inactivity notice -- only shown when redirected after 15-min idle */}
+      {inactivityMessage && (
+        <div
+          className="flex items-start gap-3 rounded-xl px-4 py-3 mb-5 text-sm"
+          style={{
+            background: 'rgba(61,214,176,0.07)',
+            border:     '1px solid rgba(61,214,176,0.22)',
+          }}
+          role="status"
+          aria-live="polite"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+            className="mt-0.5 flex-shrink-0"
+          >
+            <circle cx="12" cy="12" r="9" stroke="#3DD6B0" strokeWidth="1.8"/>
+            <path d="M12 8v4l3 3" stroke="#3DD6B0" strokeWidth="1.8" strokeLinecap="round"/>
+          </svg>
+          <p className="text-[#8CB4C0] leading-relaxed">{inactivityMessage}</p>
+        </div>
+      )}
+
       <form className="space-y-5" onSubmit={handleSubmit}>
 
         {/* Email */}

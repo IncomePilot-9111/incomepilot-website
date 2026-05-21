@@ -2,10 +2,9 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import AuthPageShell from '@/components/AuthPageShell'
 
+// Next.js 15: searchParams is a Promise
 type AuthStatusPageProps = {
-  searchParams?: {
-    type?: string
-  }
+  searchParams?: Promise<{ type?: string }>
 }
 
 const statusContent = {
@@ -43,13 +42,15 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 }
 
-export default function AuthStatusPage({ searchParams }: AuthStatusPageProps) {
-  const type = searchParams?.type === 'success' ||
-    searchParams?.type === 'confirmed' ||
-    searchParams?.type === 'error' ||
-    searchParams?.type === 'invalid-link'
-    ? searchParams.type
-    : 'error'
+export default async function AuthStatusPage({ searchParams }: AuthStatusPageProps) {
+  const params = await searchParams
+  const type =
+    params?.type === 'success'      ||
+    params?.type === 'confirmed'    ||
+    params?.type === 'error'        ||
+    params?.type === 'invalid-link'
+      ? params.type
+      : 'error'
 
   const content = statusContent[type]
 

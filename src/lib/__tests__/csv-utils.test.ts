@@ -46,6 +46,50 @@ describe('escapeCSV', () => {
   it('converts booleans to string', () => {
     expect(escapeCSV(true)).toBe('true')
   })
+
+  // ── Formula injection protection (OWASP CSV Injection) ──────────────────
+  it('prefixes = formula trigger with apostrophe', () => {
+    expect(escapeCSV('=SUM(A1:A10)')).toBe("'=SUM(A1:A10)")
+  })
+
+  it('prefixes + formula trigger with apostrophe', () => {
+    expect(escapeCSV('+cmd|/C calc')).toBe("'+cmd|/C calc")
+  })
+
+  it('prefixes - formula trigger with apostrophe', () => {
+    expect(escapeCSV('-2+3')).toBe("'-2+3")
+  })
+
+  it('prefixes @ formula trigger with apostrophe', () => {
+    expect(escapeCSV('@SUM(1+1)*cmd|/C calc')).toBe("'@SUM(1+1)*cmd|/C calc")
+  })
+
+  it('prefixes tab-prefixed value with apostrophe', () => {
+    expect(escapeCSV('\t=evil')).toBe("'\t=evil")
+  })
+
+  it('prefixes carriage-return-prefixed value with apostrophe and CSV-wraps due to embedded CR', () => {
+    // \r triggers formula-injection prefix (') AND is a CSV special char, so the
+    // result is CSV double-quote wrapped: "'<CR>=evil"
+    expect(escapeCSV('\r=evil')).toBe(`"'\r=evil"`)
+  })
+
+  it('correctly handles a full HYPERLINK injection attempt', () => {
+    // Input: =HYPERLINK("https://evil.com","x")
+    // Step 1: starts with = -> prefix with apostrophe:  '=HYPERLINK("https://evil.com","x")
+    // Step 2: contains " -> RFC 4180 wrap in quotes, double internal quotes:
+    //         "'=HYPERLINK(""https://evil.com"",""x"")"
+    const input = '=HYPERLINK("https://evil.com","x")'
+    expect(escapeCSV(input)).toBe(`"'=HYPERLINK(""https://evil.com"",""x"")"`)
+  })
+
+  it('does not prefix plain positive numbers', () => {
+    expect(escapeCSV('123.45')).toBe('123.45')
+  })
+
+  it('does not prefix plain text starting with a letter', () => {
+    expect(escapeCSV('rideshare')).toBe('rideshare')
+  })
 })
 
 // ─── incomeToCSV ─────────────────────────────────────────────────────────────

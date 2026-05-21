@@ -9,7 +9,17 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 }
 
-export default function SignInPage() {
+type SignInPageProps = {
+  searchParams?: Promise<{ reason?: string }>
+}
+
+export default async function SignInPage({ searchParams }: SignInPageProps) {
+  const params = await searchParams
+  const inactivityMessage =
+    params?.reason === 'inactive'
+      ? 'You were signed out after 15 minutes of inactivity.'
+      : null
+
   return (
     <div className="min-h-screen bg-[#070F15] flex flex-col">
 
@@ -52,8 +62,8 @@ export default function SignInPage() {
             </p>
           </div>
 
-          {/* Form card */}
-          <SignInForm />
+          {/* Form card -- receives inactivity message if present */}
+          <SignInForm inactivityMessage={inactivityMessage} />
 
           {/* Fine print */}
           <p className="text-center text-xs text-[#2E5060] mt-6 leading-relaxed px-4">

@@ -45,14 +45,31 @@ export interface GoalExportRow {
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-/** Escape a value for a CSV cell. Wraps in quotes if it contains , " or \n */
+/**
+ * Escape a value for a CSV cell.
+ *
+ * Two-step protection:
+ *   1. Formula injection: values starting with = + - @ (or whitespace variants
+ *      like tab/CR that precede a formula trigger) are prefixed with an
+ *      apostrophe so spreadsheet apps (Excel, LibreOffice, Google Sheets)
+ *      treat the cell as plain text rather than executing a formula.
+ *      Ref: https://owasp.org/www-community/attacks/CSV_Injection
+ *   2. RFC 4180 quoting: wrap in double-quotes when the value contains a
+ *      comma, double-quote, newline, or carriage-return; escape internal
+ *      double-quotes by doubling them.
+ */
 export function escapeCSV(val: unknown): string {
   if (val === null || val === undefined) return ''
   const str = String(val)
-  if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
-    return `"${str.replace(/"/g, '""')}"`
+
+  // Neutralise spreadsheet formula injection triggers.
+  // Prefixing with ' causes Excel/Sheets to treat the cell as a text literal.
+  const safe = /^[=+\-@\t\r]/.test(str) ? `'${str}` : str
+
+  if (safe.includes(',') || safe.includes('"') || safe.includes('\n') || safe.includes('\r')) {
+    return `"${safe.replace(/"/g, '""')}"`
   }
-  return str
+  return safe
 }
 
 function buildCSV(headers: string[], rows: Record<string, unknown>[]): string {

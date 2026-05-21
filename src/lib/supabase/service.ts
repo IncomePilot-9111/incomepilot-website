@@ -7,6 +7,7 @@
  * Usage: privileged writes (upsert premium_entitlements from webhook /
  * API routes where we trust our own server code, not the end user).
  */
+import 'server-only'
 import { createClient } from '@supabase/supabase-js'
 
 export function createServiceClient() {

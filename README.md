@@ -35,11 +35,16 @@ Create `.env.local` (never commit it):
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key-here
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+
+# Server-only (never NEXT_PUBLIC_)
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+REVENUECAT_SECRET_API_KEY=your-revenuecat-secret-key-here
+REVENUECAT_WEBHOOK_AUTH=Bearer your-webhook-shared-secret-here
 ```
 
-Both values come from your Supabase project:  
-**Settings → API → Project URL / publishable key**
+All values come from your Supabase project:  
+**Settings → API → Project URL / anon key / service_role key**
 
 ---
 

@@ -1,3 +1,5 @@
+import 'server-only'
+
 /**
  * Dashboard data loader -- SERVER ONLY.
  *
