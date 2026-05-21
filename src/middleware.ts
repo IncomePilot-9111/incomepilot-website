@@ -9,31 +9,29 @@ import type { NextRequest } from 'next/server'
  *  1. Refresh the Supabase session cookie so it never goes stale between
  *     server renders (critical for SSR auth with @supabase/ssr).
  *  2. Protect /dashboard -- redirect unauthenticated visitors to /signin.
- *  3. Generate a per-request nonce and set a strict Content-Security-Policy
- *     header dynamically (replaces the static CSP in vercel.json).
+ *  3. Set a Content-Security-Policy header on every response.
  *
  * CSP notes:
- *   - 'nonce-{nonce}' is used so trusted inline scripts can opt-in.
- *   - 'strict-dynamic' propagates trust to scripts loaded by nonce-trusted
- *     scripts (covers Next.js's runtime chunk loading).
- *   - 'unsafe-inline' is retained as a fallback ONLY for older browsers that
- *     do not support nonces/strict-dynamic; modern browsers with nonce support
- *     will ignore 'unsafe-inline' when a nonce is present.
+ *   - script-src uses 'self' 'unsafe-inline'. A per-request stamped-header
+ *     approach was attempted in bbf6694 but was never wired through to the
+ *     rendered HTML (no layout/page read the forwarded header and stamped it
+ *     onto script tags). Without that stamping, modern browsers blocked ALL
+ *     client JS site-wide. Reverted to 'unsafe-inline' (Fix A).
+ *     Fix B (proper per-request stamped pages with force-dynamic) is deferred;
+ *     see docs/postmortems/2026_05_21_csp_script_block_regression.md
  *   - style-src retains 'unsafe-inline' because Tailwind CSS injects styles at
  *     runtime; hashing every dynamic class string is not practical.
- *   - The nonce is forwarded as the 'x-nonce' request header so server
- *     components can read it via headers() and pass it to <Script nonce>.
  *
  * IMPORTANT: always return supabaseResponse (or a redirect), never a bare
  * NextResponse.next(), otherwise the refreshed Set-Cookie headers are lost.
  */
 
-function buildCSP(nonce: string): string {
+function buildCSP(): string {
   const directives = [
     `default-src 'self'`,
-    // nonce-based trust + strict-dynamic for dynamically loaded chunks.
-    // unsafe-inline is a fallback for browsers without nonce support.
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline'`,
+    // 'unsafe-inline' required for Next.js hydration scripts and dynamic chunks.
+    // See postmortem docs/postmortems/2026_05_21_csp_script_block_regression.md
+    `script-src 'self' 'unsafe-inline'`,
     // Tailwind requires unsafe-inline; no practical alternative without
     // build-time CSS extraction which is outside this project's scope.
     `style-src 'self' 'unsafe-inline'`,
@@ -52,13 +50,11 @@ export async function middleware(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-  // ── Generate per-request nonce for CSP ────────────────────────────────────
-  const nonce = Buffer.from(crypto.randomUUID()).toString('base64')
-  const csp   = buildCSP(nonce)
+  // ── Build CSP ─────────────────────────────────────────────────────────────
+  const csp = buildCSP()
 
-  // Build a mutated request so downstream server components can read the nonce
+  // Build a mutated request so downstream server components can read the CSP
   const requestHeaders = new Headers(request.headers)
-  requestHeaders.set('x-nonce', nonce)
   requestHeaders.set('Content-Security-Policy', csp)
 
   let supabaseResponse = NextResponse.next({
@@ -118,7 +114,7 @@ export const config = {
     /*
      * Match every path except Next.js internals and static assets.
      * This ensures the session is refreshed on every page navigation
-     * and the CSP nonce is applied to every HTML response.
+     * and the CSP is applied to every HTML response.
      */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
