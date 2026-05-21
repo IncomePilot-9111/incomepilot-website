@@ -1,13 +1,23 @@
 'use client'
 
+/**
+ * /auth/confirm  -- email verification handler
+ *
+ * Verifies the token_hash + type supplied by Supabase in the confirmation email.
+ * The app is opened by iOS Universal Links (AASA) automatically when the user
+ * taps the link on a device that has PolarisPilot installed -- no custom-scheme
+ * redirect is needed or attempted from this page.
+ */
+
+import type { EmailOtpType } from '@supabase/supabase-js'
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { buildAuthVerifiedDeepLink, createBrowserClient, tryOpenApp } from '@/lib/supabase'
-import { mapVerificationFailure, resolveAuthConfirmParams } from '@/lib/auth-confirm'
+import { createBrowserClient } from '@/lib/supabase'
+import { mapVerificationFailure } from '@/lib/auth-confirm'
 
 type VerifyState =
   | { status: 'loading'; label: string }
-  | { status: 'success'; appOpened: boolean; deepLink: string }
+  | { status: 'success' }
   | { status: 'error'; heading: string; detail: string; canRetry: boolean }
 
 export default function AuthConfirmContent() {
@@ -15,7 +25,7 @@ export default function AuthConfirmContent() {
   const hasRun = useRef(false)
   const [state, setState] = useState<VerifyState>({
     status: 'loading',
-    label: 'Checking your link…',
+    label: 'Checking your link...',
   })
 
   useEffect(() => {
@@ -26,56 +36,45 @@ export default function AuthConfirmContent() {
   }, [])
 
   async function handleVerification() {
-    const params = resolveAuthConfirmParams(searchParams)
-    if (params.kind === 'invalid') {
-      setState({ status: 'error', ...params })
-      return
-    }
+    const tokenHash = searchParams.get('token_hash')?.trim() || null
+    const type = (searchParams.get('type')?.trim() || 'signup') as EmailOtpType
 
-    let supabase: ReturnType<typeof createBrowserClient>
-    try {
-      supabase = createBrowserClient({ detectSessionInUrl: params.kind === 'code' })
-    } catch {
+    if (!tokenHash) {
       setState({
         status: 'error',
-        heading: 'Service unavailable',
-        detail: 'PolarisPilot is having trouble connecting right now. Please try again in a moment.',
+        heading: 'Verification link unavailable',
+        detail:
+          'This verification link is missing required information. Please return to PolarisPilot and request a new verification email.',
         canRetry: true,
       })
       return
     }
 
-    const verificationError =
-      params.kind === 'code'
-        ? (await supabase.auth.exchangeCodeForSession(params.code)).error
-        : (
-            await supabase.auth.verifyOtp({
-              token_hash: params.tokenHash,
-              type: params.otpType,
-            })
-          ).error
-
-    if (verificationError) {
+    let supabase: ReturnType<typeof createBrowserClient>
+    try {
+      supabase = createBrowserClient({ detectSessionInUrl: false })
+    } catch {
       setState({
         status: 'error',
-        ...mapVerificationFailure(verificationError.message),
+        heading: 'Service unavailable',
+        detail:
+          'PolarisPilot is having trouble connecting right now. Please try again in a moment.',
+        canRetry: true,
       })
       return
     }
 
-    const deepLink = buildAuthVerifiedDeepLink(params.redirectTo)
-    setState({
-      status: 'loading',
-      label: 'Verified successfully. Opening PolarisPilot…',
-    })
+    const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
 
-    await new Promise((resolve) => setTimeout(resolve, 350))
-    const appOpened = await tryOpenApp(deepLink, 1600)
-    setState({
-      status: 'success',
-      appOpened,
-      deepLink,
-    })
+    if (error) {
+      setState({
+        status: 'error',
+        ...mapVerificationFailure(error.message),
+      })
+      return
+    }
+
+    setState({ status: 'success' })
   }
 
   if (state.status === 'loading') {
@@ -92,8 +91,10 @@ export default function AuthConfirmContent() {
     )
   }
 
-  return <SuccessView appOpened={state.appOpened} deepLink={state.deepLink} />
+  return <SuccessView />
 }
+
+/* ──────────────────────────── Sub-views ─────────────────────────────────── */
 
 function LoadingView({ label }: { label: string }) {
   return (
@@ -137,13 +138,7 @@ function LoadingView({ label }: { label: string }) {
   )
 }
 
-function SuccessView({
-  appOpened,
-  deepLink,
-}: {
-  appOpened: boolean
-  deepLink: string
-}) {
+function SuccessView() {
   return (
     <div className="animate-fade-up flex max-w-sm flex-col items-center gap-6 text-center">
       <div className="relative">
@@ -175,74 +170,11 @@ function SuccessView({
       <div className="space-y-2">
         <h1 className="text-2xl font-bold text-[#E8F5F2]">Verified successfully</h1>
         <p className="leading-relaxed text-[#8CB4C0]">
-          Your email has been confirmed successfully.
+          Your email has been confirmed.
         </p>
         <p className="mt-1 text-sm text-[#6E9BAA]">
-          You can safely close this page and continue into PolarisPilot in the app.
+          Open PolarisPilot on your device and sign in to continue.
         </p>
-      </div>
-
-      <div className="glass-card mt-2 w-full p-4">
-        {appOpened ? (
-          <div className="flex items-start gap-3 text-left">
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
-              fill="none"
-              aria-hidden="true"
-              className="mt-0.5 flex-shrink-0"
-            >
-              <circle cx="8" cy="8" r="7" stroke="#3DD6B0" strokeWidth="1.2" />
-              <path
-                d="M5.5 8l2 2 3-3.5"
-                stroke="#3DD6B0"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <p className="text-xs text-[#6E9BAA]">
-              PolarisPilot should be open on your device. If not, return to the app and sign in there.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4 text-left">
-            <div className="flex items-start gap-3">
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-                fill="none"
-                aria-hidden="true"
-                className="mt-0.5 flex-shrink-0"
-              >
-                <circle
-                  cx="8"
-                  cy="8"
-                  r="7"
-                  stroke="rgba(61,214,176,0.50)"
-                  strokeWidth="1.2"
-                />
-                <path
-                  d="M8 5v4M8 11v.5"
-                  stroke="rgba(61,214,176,0.70)"
-                  strokeWidth="1.4"
-                  strokeLinecap="round"
-                />
-              </svg>
-              <p className="text-xs text-[#6E9BAA]">
-                If PolarisPilot does not open automatically, return to the app and sign in there.
-              </p>
-            </div>
-            <a
-              href={deepLink}
-              className="inline-flex min-h-[44px] items-center justify-center rounded-full border border-[rgba(61,214,176,0.28)] bg-[rgba(61,214,176,0.08)] px-4 text-sm font-semibold text-[#CFFCF2] transition-colors hover:bg-[rgba(61,214,176,0.14)]"
-            >
-              Open PolarisPilot
-            </a>
-          </div>
-        )}
       </div>
 
       <p className="text-xs text-[#3E6474]">This browser tab can be safely closed.</p>

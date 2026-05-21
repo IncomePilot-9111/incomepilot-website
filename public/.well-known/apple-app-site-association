@@ -1,0 +1,12 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["8W34HF8AF2.com.incomepilot.app"],
+        "components": [
+          { "/": "/auth/*", "comment": "auth verification deep links open the app when installed" }
+        ]
+      }
+    ]
+  }
+}
