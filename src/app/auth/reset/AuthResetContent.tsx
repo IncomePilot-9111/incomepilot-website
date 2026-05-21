@@ -77,12 +77,35 @@ export default function AuthResetContent() {
       return
     }
 
-    const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
-
-    if (error) {
+    // Wrap in try/catch + timeout so a thrown exception (network error, fetch
+    // failed) or a hung request never leaves the page stuck on the spinner.
+    let verifyError: { message: string } | null = null
+    try {
+      const TIMEOUT_MS = 15_000
+      const result = await Promise.race([
+        supabase.auth.verifyOtp({ token_hash: tokenHash, type }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), TIMEOUT_MS),
+        ),
+      ])
+      verifyError = result.error
+    } catch (e) {
       setPhase({
         kind: 'error',
-        ...mapVerificationFailure(error.message),
+        heading: 'Service unavailable',
+        detail:
+          e instanceof Error && e.message === 'timeout'
+            ? 'The reset link request took too long. Please check your connection and try again.'
+            : 'PolarisPilot is having trouble connecting right now. Please try again in a moment.',
+        canRetry: true,
+      })
+      return
+    }
+
+    if (verifyError) {
+      setPhase({
+        kind: 'error',
+        ...mapVerificationFailure(verifyError.message),
       })
       return
     }
