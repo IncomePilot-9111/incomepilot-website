@@ -1,66 +1,63 @@
 'use client'
 
 /**
- * Two-phase reset flow:
+ * /auth/reset -- password-reset handler for the mobile-app email flow.
  *
- * Phase 1 (verifying)  -- On mount, verify the token_hash from the URL.
- *                         If valid, Supabase establishes a recovery session
- *                         which authorises the subsequent updateUser call.
+ * Anti-prefetch design: verifyOtp(recovery) is intentionally NOT called on mount.
+ * Email prefetchers and in-app-browser double-loads must not consume the single-use
+ * token before the user's intentional tap. The recovery session is only established
+ * when the user explicitly presses "Reset my password".
  *
- * Phase 2 (form)       -- Show a password + confirm-password form.
- *                         On submit, call supabase.auth.updateUser({ password }).
- *
- * Phase 3 (done)       -- Show a success state. The user returns to the app
- *                         and signs in with the new password.
+ * Phase machine:
+ *   idle       -- token_hash present in URL, waiting for user click (CTA shown)
+ *   invalid    -- token_hash absent on load -> hard error, no CTA
+ *   verifying  -- CTA clicked, verifyOtp(recovery) in-flight (button disabled)
+ *   form       -- recovery session established; show new-password form
+ *   soft-error -- token already used/expired -> reassuring screen with resend guidance
+ *   error      -- network/service failure -> hard error with retry guidance
+ *   done       -- password updated successfully
  */
 
 import type { EmailOtpType } from '@supabase/supabase-js'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createBrowserClient } from '@/lib/supabase'
-import { mapVerificationFailure } from '@/lib/auth-confirm'
 import { normalizeAuthMessage } from '@/lib/auth-helpers'
 
 type Phase =
+  | { kind: 'idle' }
+  | { kind: 'invalid' }
   | { kind: 'verifying' }
   | { kind: 'form' }
+  | { kind: 'soft-error' }
   | { kind: 'done' }
   | { kind: 'error'; heading: string; detail: string; canRetry: boolean }
 
 export default function AuthResetContent() {
   const searchParams = useSearchParams()
-  const hasRun = useRef(false)
+
+  // Parse URL params at first render -- pure read, no network.
+  const tokenHash = searchParams.get('token_hash')?.trim() || null
+  const type = (searchParams.get('type')?.trim() || 'recovery') as EmailOtpType
+
+  // Supabase client is created during verifyOtp and kept for the updateUser call.
   const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null)
 
-  const [phase, setPhase] = useState<Phase>({ kind: 'verifying' })
+  // Initial phase determined by URL validity -- no useEffect, no network on load.
+  const [phase, setPhase] = useState<Phase>(
+    tokenHash ? { kind: 'idle' } : { kind: 'invalid' },
+  )
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState('')
 
-  /* ── Phase 1: verify OTP on mount ────────────────────────────────────── */
+  /* ── Phase 1: CTA click -> verifyOtp -> establish recovery session ─────── */
 
-  useEffect(() => {
-    if (hasRun.current) return
-    hasRun.current = true
-    void verifyToken()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  async function handleCTAClick() {
+    if (!tokenHash) return
 
-  async function verifyToken() {
-    const tokenHash = searchParams.get('token_hash')?.trim() || null
-    const type = (searchParams.get('type')?.trim() || 'recovery') as EmailOtpType
-
-    if (!tokenHash) {
-      setPhase({
-        kind: 'error',
-        heading: 'Reset link unavailable',
-        detail:
-          'This password reset link is missing required information. Please return to PolarisPilot and request a new reset email.',
-        canRetry: true,
-      })
-      return
-    }
+    setPhase({ kind: 'verifying' })
 
     let supabase: ReturnType<typeof createBrowserClient>
     try {
@@ -77,8 +74,9 @@ export default function AuthResetContent() {
       return
     }
 
-    // Wrap in try/catch + timeout so a thrown exception (network error, fetch
-    // failed) or a hung request never leaves the page stuck on the spinner.
+    // Wrap in try/catch + 15 s timeout (ed92e50) so a thrown exception
+    // (network error, fetch failed) or a hung request surfaces as an error
+    // instead of leaving the page stuck on the verifying spinner.
     let verifyError: { message: string } | null = null
     try {
       const TIMEOUT_MS = 15_000
@@ -90,6 +88,7 @@ export default function AuthResetContent() {
       ])
       verifyError = result.error
     } catch (e) {
+      // Thrown = network/fetch/timeout -> hard service error, safe to retry.
       setPhase({
         kind: 'error',
         heading: 'Service unavailable',
@@ -103,17 +102,16 @@ export default function AuthResetContent() {
     }
 
     if (verifyError) {
-      setPhase({
-        kind: 'error',
-        ...mapVerificationFailure(verifyError.message),
-      })
+      // verifyOtp returned an API-level error object -- almost always because
+      // the token was already consumed (prefetch, reload) or expired.
+      setPhase({ kind: 'soft-error' })
       return
     }
 
     setPhase({ kind: 'form' })
   }
 
-  /* ── Phase 2: password update ─────────────────────────────────────────── */
+  /* ── Phase 2: password form submit ───────────────────────────────────── */
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -153,9 +151,12 @@ export default function AuthResetContent() {
 
   /* ── Render ───────────────────────────────────────────────────────────── */
 
-  if (phase.kind === 'verifying') return <VerifyingView />
-  if (phase.kind === 'error')     return <ErrorView {...phase} />
-  if (phase.kind === 'done')      return <DoneView />
+  if (phase.kind === 'idle')       return <CTAView onReset={handleCTAClick} />
+  if (phase.kind === 'verifying')  return <VerifyingView />
+  if (phase.kind === 'soft-error') return <SoftErrorView />
+  if (phase.kind === 'invalid')    return <InvalidView />
+  if (phase.kind === 'done')       return <DoneView />
+  if (phase.kind === 'error')      return <ErrorView {...phase} />
 
   /* phase.kind === 'form' */
   return (
@@ -242,6 +243,51 @@ export default function AuthResetContent() {
 
 /* ──────────────────────────── Sub-views ─────────────────────────────────── */
 
+function CTAView({ onReset }: { onReset: () => void }) {
+  return (
+    <div className="animate-fade-up flex max-w-sm flex-col items-center gap-6 text-center">
+      {/* Icon */}
+      <div
+        className="flex h-20 w-20 items-center justify-center rounded-full border border-[rgba(61,214,176,0.30)]"
+        style={{
+          background:
+            'radial-gradient(circle, rgba(61,214,176,0.12) 0%, rgba(61,214,176,0.03) 100%)',
+        }}
+      >
+        <svg width="36" height="36" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+          <rect x="8" y="6" width="20" height="26" rx="3" stroke="#3DD6B0" strokeWidth="1.8" fill="none" />
+          <path d="M13 14h10M13 19h8M13 24h5" stroke="#3DD6B0" strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+      </div>
+
+      <div className="space-y-2">
+        <h1 className="text-2xl font-bold text-[#E8F5F2]">Reset your password</h1>
+        <p className="leading-relaxed text-[#8CB4C0]">
+          Tap below to verify your reset link and choose a new password.
+        </p>
+        <p className="text-xs text-[#4A7A8A]">
+          This link can only be used once, so tap when you are ready.
+        </p>
+      </div>
+
+      <button
+        onClick={onReset}
+        className="w-full max-w-xs h-12 rounded-xl font-bold text-sm text-[#070F15] relative overflow-hidden group"
+        style={{
+          background: 'linear-gradient(135deg, #3DD6B0 0%, #2ABFA0 100%)',
+          boxShadow: '0 4px 24px rgba(61,214,176,0.25)',
+        }}
+      >
+        <span className="relative z-10">Reset my password</span>
+        <div
+          className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+          style={{ background: 'linear-gradient(135deg, #5EE4C0 0%, #3DD6B0 100%)' }}
+        />
+      </button>
+    </div>
+  )
+}
+
 function VerifyingView() {
   return (
     <div className="flex max-w-xs flex-col items-center gap-6 text-center">
@@ -271,6 +317,134 @@ function VerifyingView() {
         <p className="text-base font-semibold text-[#E8F5F2]">Verifying your reset link...</p>
         <p className="mt-1.5 text-sm text-[#6E9BAA]">Just a moment.</p>
       </div>
+    </div>
+  )
+}
+
+function SoftErrorView() {
+  return (
+    <div className="animate-fade-up flex max-w-sm flex-col items-center gap-6 text-center">
+      {/* Info icon -- neutral, not alarming */}
+      <div
+        className="flex h-20 w-20 items-center justify-center rounded-full border border-[rgba(61,214,176,0.22)]"
+        style={{
+          background:
+            'radial-gradient(circle, rgba(61,214,176,0.08) 0%, rgba(61,214,176,0.02) 100%)',
+        }}
+      >
+        <svg width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden="true">
+          <circle cx="17" cy="17" r="13" stroke="rgba(61,214,176,0.55)" strokeWidth="1.6" fill="none" />
+          <path
+            d="M17 11v7M17 21v2"
+            stroke="rgba(61,214,176,0.80)"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </svg>
+      </div>
+
+      <div className="space-y-2">
+        <h1 className="text-xl font-bold text-[#E8F5F2]">This link may already have been used</h1>
+        <p className="leading-relaxed text-[#8CB4C0]">
+          If you just reset your password, you&apos;re all set. Open PolarisPilot on your
+          device and sign in with your new password.
+        </p>
+      </div>
+
+      <div className="glass-card w-full p-4">
+        <div className="flex items-start gap-3 text-left">
+          <svg
+            width="16" height="16" viewBox="0 0 16 16" fill="none"
+            aria-hidden="true" className="mt-0.5 flex-shrink-0"
+          >
+            <circle cx="8" cy="8" r="7" stroke="rgba(61,214,176,0.40)" strokeWidth="1.2" />
+            <path d="M8 5v4M8 11v.5" stroke="rgba(61,214,176,0.60)" strokeWidth="1.4" strokeLinecap="round" />
+          </svg>
+          <div className="space-y-1 text-xs text-[#6E9BAA]">
+            <p className="font-semibold text-[#8CB4C0]">Haven&apos;t reset yet?</p>
+            <p>
+              Open PolarisPilot and request a new password reset email.
+              Then tap the fresh link in your inbox.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <p className="text-xs text-[#3E6474]">
+        Need help?{' '}
+        <a
+          href="/support"
+          className="text-[#4A8A9A] underline underline-offset-2 transition-colors hover:text-[#3DD6B0]"
+        >
+          Contact support
+        </a>
+      </p>
+    </div>
+  )
+}
+
+function InvalidView() {
+  return (
+    <div className="animate-fade-up flex max-w-sm flex-col items-center gap-6 text-center">
+      <div
+        className="flex h-20 w-20 items-center justify-center rounded-full border border-[rgba(255,100,100,0.25)]"
+        style={{
+          background:
+            'radial-gradient(circle, rgba(255,80,80,0.10) 0%, rgba(255,80,80,0.03) 100%)',
+        }}
+      >
+        <svg width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden="true">
+          <path
+            d="M17 11v8M17 22.5v.5"
+            stroke="rgba(255,120,120,0.90)"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+          />
+          <path
+            d="M14.5 5.6L3.2 25a2.9 2.9 0 002.5 4.4h22.6a2.9 2.9 0 002.5-4.4L19.5 5.6a2.9 2.9 0 00-5 0z"
+            stroke="rgba(255,120,120,0.60)"
+            strokeWidth="1.6"
+            fill="none"
+          />
+        </svg>
+      </div>
+
+      <div className="space-y-2">
+        <h1 className="text-xl font-bold text-[#E8F5F2]">Reset link unavailable</h1>
+        <p className="text-sm leading-relaxed text-[#8CB4C0]">
+          This link is missing required information. Please return to PolarisPilot and
+          request a new password reset email.
+        </p>
+      </div>
+
+      <div className="glass-card w-full p-4">
+        <div className="flex items-start gap-3 text-left">
+          <svg
+            width="16" height="16" viewBox="0 0 16 16" fill="none"
+            aria-hidden="true" className="mt-0.5 flex-shrink-0"
+          >
+            <circle cx="8" cy="8" r="7" stroke="rgba(61,214,176,0.40)" strokeWidth="1.2" />
+            <path d="M8 5v4M8 11v.5" stroke="rgba(61,214,176,0.60)" strokeWidth="1.4" strokeLinecap="round" />
+          </svg>
+          <div className="space-y-1 text-xs text-[#6E9BAA]">
+            <p className="font-semibold text-[#8CB4C0]">What to do next</p>
+            <p>
+              Open PolarisPilot on your device and request a new password reset email.
+              Then tap the fresh link in your inbox.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <p className="text-xs text-[#3E6474]">
+        Need help?{' '}
+        <a
+          href="/support"
+          className="text-[#4A8A9A] underline underline-offset-2 transition-colors hover:text-[#3DD6B0]"
+        >
+          Contact support
+        </a>
+      </p>
     </div>
   )
 }
