@@ -3,9 +3,10 @@ import type { ReactNode } from 'react'
 import { Analytics } from '@vercel/analytics/next'
 import { Rajdhani, Inter } from 'next/font/google'
 import './globals.css'
-import GlobalBackground from '@/components/GlobalBackground'
-import ScrollCompass from '@/components/ScrollCompass'
-import SectionAnimations from '@/components/SectionAnimations'
+import GlobalBackground  from '@/components/GlobalBackground'
+import ScrollCompass      from '@/components/ScrollCompass'
+import SectionAnimations  from '@/components/SectionAnimations'
+import InactivityGuard   from '@/components/InactivityGuard'
 
 /* ── Fonts ────────────────────────────────────────────────────────────────── */
 
@@ -101,6 +102,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={`dark ${rajdhani.variable} ${inter.variable}`}>
       <body className="bg-[#0C1C28] text-[#E8F5F2] antialiased">
+        {/* Inactivity guard -- site-wide, persists across all page navigations.
+            Logs out authenticated users after 15 min idle; no-ops for guests. */}
+        <InactivityGuard />
         {/* Fixed radar/compass texture, behind all pages */}
         <GlobalBackground />
         {/* Scroll-linked compass, on every page */}

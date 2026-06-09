@@ -1,21 +1,28 @@
 'use client'
 
 /**
- * InactivityGuard -- Client Component.
+ * InactivityGuard -- Client Component, mounted once in the root layout.
  *
  * Signs out the authenticated user and redirects to /signin?reason=inactive
- * after TIMEOUT_MS of no activity.
+ * after TIMEOUT_MS of no user activity, measured as wall-clock time since the
+ * last activity event -- regardless of tab switching.
  *
- * Activity events that reset the timer:
- *   mousemove, mousedown, keydown, touchstart, scroll,
- *   visibilitychange (when the page becomes visible again)
+ * Design:
+ *   - Tracks last-activity as an absolute timestamp (lastActivityRef).
+ *   - Activity events update the timestamp and reschedule the timer to fire
+ *     at lastActivity + TIMEOUT_MS from now.
+ *   - visibilitychange -> HIDDEN: timer keeps running uninterrupted.
+ *     Switching tabs does NOT reset the 15-minute countdown.
+ *   - visibilitychange -> VISIBLE: check elapsed time. If >= TIMEOUT_MS,
+ *     fire logout immediately (user was away long enough). If not, reschedule
+ *     for the remaining time (setTimeout may have been throttled by the browser
+ *     while the tab was hidden).
+ *   - On timeout: check for an active Supabase session first. If none, do
+ *     nothing -- avoids redirecting unauthenticated visitors on public pages.
  *
- * Clean-up: all event listeners are removed on unmount to prevent memory
- * leaks. The timer reference is stored in a ref so interval/timeout IDs
- * do not cause re-renders.
- *
- * Usage: render inside any authenticated server component. Does nothing if
- * the component is unmounted (e.g. user navigates away or logs out).
+ * Mounted in root layout so it runs across all pages without remounting on
+ * navigation. A single persistent instance means the countdown is never
+ * accidentally reset by a route change.
  */
 
 import { useEffect, useRef } from 'react'
@@ -35,58 +42,85 @@ const ACTIVITY_EVENTS: (keyof WindowEventMap)[] = [
 ]
 
 export default function InactivityGuard() {
-  const router      = useRouter()
-  const timerRef    = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const isMounted   = useRef(true)
+  const router           = useRouter()
+  const timerRef         = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastActivityRef  = useRef<number>(Date.now())
+  const isMounted        = useRef(true)
 
   useEffect(() => {
     isMounted.current = true
 
-    function resetTimer() {
+    /* ── Schedule the next timeout check ──────────────────────────────── */
+    function scheduleCheck() {
       if (timerRef.current) clearTimeout(timerRef.current)
-      timerRef.current = setTimeout(handleTimeout, TIMEOUT_MS)
+      const remaining = lastActivityRef.current + TIMEOUT_MS - Date.now()
+      timerRef.current = setTimeout(() => { void handleTimeout() }, Math.max(0, remaining))
     }
 
+    /* ── Record user activity and reschedule ───────────────────────────── */
+    function recordActivity() {
+      lastActivityRef.current = Date.now()
+      scheduleCheck()
+    }
+
+    /* ── Fire when the timer expires ───────────────────────────────────── */
     async function handleTimeout() {
       if (!isMounted.current) return
+
       try {
         const supabase = createClient()
+        // Only sign out if there is actually an active session.
+        // getSession() is a local read -- no server round-trip.
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) return            // unauthenticated user, nothing to do
         await supabase.auth.signOut()
       } catch {
         // Sign-out failure is non-fatal -- redirect regardless so the user
-        // sees the inactivity message and can re-authenticate.
+        // sees the inactivity message and is prompted to re-authenticate.
       }
+
       if (isMounted.current) {
         router.push('/signin?reason=inactive')
       }
     }
 
+    /* ── Tab visibility changes ────────────────────────────────────────── */
     function handleVisibilityChange() {
-      // When the user returns to the tab, treat it as activity
-      if (document.visibilityState === 'visible') resetTimer()
+      if (document.visibilityState === 'visible') {
+        // Tab returned. Check whether the idle window already expired while
+        // the user was away -- if so, log them out immediately.
+        if (Date.now() - lastActivityRef.current >= TIMEOUT_MS) {
+          void handleTimeout()
+        } else {
+          // Not timed out yet. Reschedule with the correct remaining time
+          // because the browser may have throttled the setTimeout while the
+          // tab was hidden.
+          scheduleCheck()
+        }
+      }
+      // HIDDEN: do nothing -- the timer keeps counting.
+      // Switching tabs does NOT restart the 15-minute window.
     }
 
-    // Register all activity events
+    // Register all activity listeners
     ACTIVITY_EVENTS.forEach((event) =>
-      window.addEventListener(event, resetTimer, { passive: true }),
+      window.addEventListener(event, recordActivity, { passive: true }),
     )
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
     // Start the initial timer
-    resetTimer()
+    scheduleCheck()
 
     return () => {
       isMounted.current = false
       if (timerRef.current) clearTimeout(timerRef.current)
       ACTIVITY_EVENTS.forEach((event) =>
-        window.removeEventListener(event, resetTimer),
+        window.removeEventListener(event, recordActivity),
       )
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-    // router is stable; intentionally empty dep array after it
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Renders nothing -- purely behavioural
-  return null
+  return null   // purely behavioural -- renders nothing
 }
