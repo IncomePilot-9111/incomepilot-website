@@ -11,7 +11,7 @@ export default function TermsPage() {
     <LegalLayout
       title="Terms of Use"
       subtitle="Please read these terms carefully before using Valkoda and PolarisPilot."
-      lastUpdated="April 2025"
+      lastUpdated="25 June 2026"
     >
 
       <h2>1. Acceptance of Terms</h2>
@@ -27,7 +27,7 @@ export default function TermsPage() {
 
       <h2>2. Eligibility</h2>
       <p>
-        You must be at least 13 years of age to use PolarisPilot. By creating an
+        You must be at least 16 years of age to use PolarisPilot. By creating an
         account you confirm that you meet this requirement. If you use PolarisPilot
         on behalf of an organisation, you represent that you have authority to bind
         that organisation to these Terms.
@@ -255,10 +255,9 @@ export default function TermsPage() {
 
       <h2>17. Governing Law</h2>
       <p>
-        These Terms are governed by the laws of the State of Victoria, Australia,
-        without regard to conflict of law principles. Any disputes arising under
-        these Terms shall be subject to the non-exclusive jurisdiction of the courts
-        of Victoria, Australia.
+        These Terms are governed by the laws of Western Australia, without regard to
+        conflict of law principles. Any disputes arising under these Terms shall be
+        subject to the non-exclusive jurisdiction of the courts of Western Australia.
       </p>
 
       <h2>18. Changes to Terms</h2>

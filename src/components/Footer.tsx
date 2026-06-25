@@ -4,9 +4,10 @@ import Logo from './Logo'
 const year = new Date().getFullYear()
 
 const footerLinks = [
-  { label: 'Privacy Policy', href: '/privacy' },
-  { label: 'Terms of Use',   href: '/terms'   },
-  { label: 'Contact',        href: '/support' },
+  { label: 'Privacy Policy', href: '/privacy'        },
+  { label: 'Terms of Use',   href: '/terms'          },
+  { label: 'Delete Account', href: '/delete-account' },
+  { label: 'Contact',        href: '/support'        },
 ]
 
 export default function Footer() {

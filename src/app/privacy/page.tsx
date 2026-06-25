@@ -11,7 +11,7 @@ export default function PrivacyPage() {
     <LegalLayout
       title="Privacy Policy"
       subtitle="How we collect, use, and protect your information."
-      lastUpdated="April 2025"
+      lastUpdated="25 June 2026"
     >
 
       <h2>1. About this Policy</h2>
@@ -70,17 +70,19 @@ export default function PrivacyPage() {
 
       <h3>3.3 Usage and Diagnostics</h3>
       <p>
-        We collect anonymous usage events (such as which features are used) and
-        crash reports to help us improve the app. These do not include the content
-        of your earnings entries. We use industry-standard analytics and crash
-        reporting tools for this purpose.
+        We collect limited, account-linked diagnostic events in our own backend (for
+        example, when a data import is suppressed) to help us improve reliability. We
+        do not use third-party analytics SDKs, and we do not use advertising or
+        tracking technologies. The app does not currently transmit crash reports off
+        your device.
       </p>
 
       <h3>3.4 Device Information</h3>
       <p>
-        We collect limited device information - such as device type and operating
-        system version - to help diagnose compatibility issues and improve the app
-        experience.
+        To support multi-device features and basic compatibility, we process your
+        platform type (for example, iOS or Android) and an app-generated installation
+        identifier that links your devices to your account. We do not collect a
+        hardware device identifier or any advertising identifier.
       </p>
 
       <h3>3.5 Communications</h3>
@@ -163,10 +165,6 @@ export default function PrivacyPage() {
           receive or store full payment card details.
         </li>
         <li>
-          <strong>Analytics providers</strong> - anonymous usage data only; no
-          personal identifiers or earnings data are shared.
-        </li>
-        <li>
           <strong>Legal authorities</strong> - where required by law, court order, or
           to protect our rights or the safety of others.
         </li>
@@ -198,10 +196,10 @@ export default function PrivacyPage() {
 
       <h2>9. Children&apos;s Privacy</h2>
       <p>
-        PolarisPilot is not directed to children under the age of 13. We do not
-        knowingly collect personal information from children. If you believe a child
-        has provided us with personal information, please contact us and we will
-        promptly delete it.
+        PolarisPilot is not directed to children under the age of 16. We do not
+        knowingly collect personal information from children under 16. If you believe
+        a child under 16 has provided us with personal information, please contact us
+        and we will promptly delete it.
       </p>
 
       <h2>10. Changes to This Policy</h2>
