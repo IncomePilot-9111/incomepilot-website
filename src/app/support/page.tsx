@@ -146,7 +146,7 @@ export default function SupportPage() {
             />
             <FaqItem
               question="How do I access PolarisPilot?"
-              answer="PolarisPilot is being introduced through Pioneer Alpha early access. Use the website sign-up flow to request access and stay aligned with the next product milestones."
+              answer="PolarisPilot is available on iOS and Android. Download the app and sign in with your Valkoda account, or create a new account on this website to get started."
             />
             <FaqItem
               question="Does PolarisPilot store my earnings data on a server?"

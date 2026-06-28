@@ -31,14 +31,12 @@ export const metadata: Metadata = {
     template: '%s | Valkoda',
   },
   description:
-    'Valkoda builds intelligent systems for modern earners. PolarisPilot is our first Pioneer Alpha product.',
+    'Valkoda builds intelligent systems for modern earners. PolarisPilot is our first product.',
   keywords: [
     'Valkoda',
     'PolarisPilot',
     'earnings intelligence',
     'modern earners',
-    'Pioneer Alpha',
-    'early access',
     'gig economy',
     'independent workers',
   ],
@@ -53,7 +51,7 @@ export const metadata: Metadata = {
     siteName: 'Valkoda',
     title: 'Valkoda: Design. Build. Evolve.',
     description:
-      'Valkoda builds intelligent systems for modern earners. PolarisPilot is our first Pioneer Alpha product.',
+      'Valkoda builds intelligent systems for modern earners. PolarisPilot is our first product.',
     url: 'https://valkoda.app',
     images: [
       {
@@ -68,7 +66,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Valkoda: Design. Build. Evolve.',
     description:
-      'Valkoda builds intelligent systems for modern earners. PolarisPilot is our first Pioneer Alpha product.',
+      'Valkoda builds intelligent systems for modern earners. PolarisPilot is our first product.',
     images: ['/BANNER.png'],
   },
   robots: {

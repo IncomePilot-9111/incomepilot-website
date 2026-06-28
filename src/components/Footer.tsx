@@ -23,7 +23,7 @@ export default function Footer() {
               Design. Build. Evolve.
             </p>
             <p className="text-xs text-[#3E6474] text-center sm:text-left">
-              PolarisPilot: Pioneer Alpha
+              PolarisPilot v1.0.12 (1.0.15)
             </p>
           </div>
 

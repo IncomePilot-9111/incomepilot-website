@@ -9,7 +9,7 @@ import ValkodaWordmark from '@/components/ValkodaWordmark'
 export const metadata: Metadata = {
   title: 'Valkoda: Design. Build. Evolve.',
   description:
-    'Valkoda builds intelligent systems for modern earners. PolarisPilot is our first Pioneer Alpha product.',
+    'Valkoda builds intelligent systems for modern earners. PolarisPilot is our first product.',
   alternates: {
     canonical: '/',
   },
@@ -389,21 +389,21 @@ export default function HomePage() {
               Your personal earnings operating system. Built for independent workers, gig earners, and the self-employed.
             </p>
 
-            {/* Pioneer Alpha badge */}
+            {/* Version badge */}
             <div className="animate-fade-up delay-400 mt-4">
               <span className="badge">
                 <span
                   aria-hidden="true"
                   className="inline-block w-1.5 h-1.5 rounded-full bg-[#3DD6B0] opacity-80"
                 />
-                Pioneer Alpha
+                v1.0 Now Available
               </span>
             </div>
 
             {/* CTA row */}
             <div className="animate-fade-up delay-500 mt-8 flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/signup" className="btn-primary min-w-[200px] justify-center">
-                Join Early Access
+                Get Started
               </Link>
               <Link href="#polarispilot" className="btn-ghost min-w-[200px] justify-center">
                 Discover PolarisPilot
@@ -432,14 +432,14 @@ export default function HomePage() {
                 The first product from Valkoda. A complete earnings operating system built to help independent workers track, understand, and grow their income across every stream they work.
               </p>
 
-              {/* Pioneer Alpha status card */}
+              {/* Version status card */}
               <div className="mt-6 inline-flex items-center gap-3 glass-surface px-5 py-3 rounded-full">
                 <span
                   aria-hidden="true"
                   className="inline-block w-2 h-2 rounded-full bg-[#3DD6B0] animate-pulse"
                 />
-                <span className="text-sm font-semibold text-[#3DD6B0] tracking-wide">Pioneer Alpha</span>
-                <span className="text-xs text-[#4A7A8A]">Early access. Shape the product.</span>
+                <span className="text-sm font-semibold text-[#3DD6B0] tracking-wide">PolarisPilot 1.0</span>
+                <span className="text-xs text-[#4A7A8A]">Now available on iOS and Android.</span>
               </div>
             </div>
 
@@ -667,7 +667,7 @@ export default function HomePage() {
                 We believe independent workers deserve the same quality of financial tooling that enterprises have. Clear data, real predictions, and guidance that adapts to how you work.
               </p>
               <p className="text-base text-[#8CB4C0] leading-relaxed">
-                We are early. The Pioneer Alpha is live. Come build this with us.
+                PolarisPilot 1.0 is live. Download now and come build with us.
               </p>
 
               <p className="mt-6 text-xs text-[#3E6474]">
@@ -781,18 +781,18 @@ export default function HomePage() {
 
           <div className="section-container relative z-10 text-center">
             <div className="reveal">
-              <p className="section-eyebrow mb-4">PIONEER ALPHA</p>
+              <p className="section-eyebrow mb-4">POLARISPILOT 1.0</p>
               <h2 className="text-4xl sm:text-5xl font-bold text-[#F5F7FB] mb-4">
-                Be first. Pioneer Alpha.
+                PolarisPilot 1.0 is here.
               </h2>
               <p className="text-base text-[#8CB4C0] max-w-md mx-auto mb-10">
-                No spam. No obligation. Join early, shape the product.
+                No spam. No obligation. Your earnings, your data.
               </p>
               <Link
                 href="/signup"
                 className="btn-primary text-base px-10 py-4 rounded-2xl shadow-[0_6px_32px_rgba(61,214,176,0.30)]"
               >
-                Join Early Access
+                Get Started
               </Link>
             </div>
           </div>

@@ -63,7 +63,7 @@ export default async function DashboardPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                <span className="badge">Pioneer Alpha</span>
+                <span className="badge">v1.0</span>
                 <span
                   className="badge"
                   style={{
