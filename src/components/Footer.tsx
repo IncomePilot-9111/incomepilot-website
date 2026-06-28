@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import Logo from './Logo'
+import { APP_VERSION } from '@/lib/version'
 
 const year = new Date().getFullYear()
 
@@ -23,7 +24,7 @@ export default function Footer() {
               Design. Build. Evolve.
             </p>
             <p className="text-xs text-[#3E6474] text-center sm:text-left">
-              PolarisPilot v1.0.12 (1.0.15)
+              PolarisPilot v{APP_VERSION}
             </p>
           </div>
 

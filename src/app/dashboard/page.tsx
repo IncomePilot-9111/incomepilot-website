@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import Nav             from '@/components/Nav'
 import PremiumGate     from '@/components/PremiumGate'
 import { createClient } from '@/lib/supabase/server'
+import { APP_VERSION } from '@/lib/version'
 
 export const metadata: Metadata = {
   title:  'Dashboard | PolarisPilot',
@@ -63,7 +64,7 @@ export default async function DashboardPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                <span className="badge">v1.0</span>
+                <span className="badge">v{APP_VERSION}</span>
                 <span
                   className="badge"
                   style={{

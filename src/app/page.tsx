@@ -412,7 +412,7 @@ export default function HomePage() {
 
             {/* Platform note */}
             <p className="animate-fade-up delay-600 mt-8 text-xs text-[#4A7A8A] tracking-widest uppercase">
-              Coming soon on iOS and Android
+              Now available on iOS and Android
             </p>
 
           </div>
