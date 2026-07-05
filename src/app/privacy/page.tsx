@@ -11,7 +11,7 @@ export default function PrivacyPage() {
     <LegalLayout
       title="Privacy Policy"
       subtitle="How we collect, use, and protect your information."
-      lastUpdated="25 June 2026"
+      lastUpdated="5 July 2026"
     >
 
       <h2>1. About this Policy</h2>
@@ -70,11 +70,13 @@ export default function PrivacyPage() {
 
       <h3>3.3 Usage and Diagnostics</h3>
       <p>
-        We collect limited, account-linked diagnostic events in our own backend (for
-        example, when a data import is suppressed) to help us improve reliability. We
-        do not use third-party analytics SDKs, and we do not use advertising or
-        tracking technologies. The app does not currently transmit crash reports off
-        your device.
+        We collect limited, account-linked diagnostic and telemetry events in our
+        own backend — for example, device type, operating system version, app
+        version, feature-usage events, and error information (such as an error code
+        or an anonymised stack reference) — to help us monitor reliability and
+        improve the app. These events are linked to your account. We do not use
+        third-party analytics SDKs, and we do not use advertising or tracking
+        technologies.
       </p>
 
       <h3>3.4 Device Information</h3>
